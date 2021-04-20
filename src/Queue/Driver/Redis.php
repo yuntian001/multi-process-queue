@@ -43,7 +43,14 @@ class Redis implements DriverInterface
 
     const FAILED = 'failed';//失败任务队列（hash类型存储失败任务的序列化信息）
 
-
+    /**
+     * Redis constructor.
+     * @param $host redis地址
+     * @param int $port 端口
+     * @param string $password 密码
+     * @param string $database 数据库 默认为0
+     * @param string $prefix  前缀
+     */
     public function __construct($host, $port = 6379, $password = '', $database = "0", $prefix = 'mpq')
     {
         $this->config = [

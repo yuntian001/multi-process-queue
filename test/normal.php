@@ -13,4 +13,4 @@ $a = function ()use($b) {
         '正常任务结束' .$b. date('Y-m-d H:i:s'),FILE_APPEND);};
 Config::set(include(__DIR__ . '/Config.php'));
 
-Queue::push('test', $a);
+Queue::push('test', $a,10);

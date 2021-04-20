@@ -69,7 +69,8 @@ class ManageProcess
         $this->registerHandle();
         //写入pid
         if ($this->getPid()) {
-            throw new \Exception('已启动不可重复启动');
+            Log::error('已启动不可重复启动');
+            exit();
         }
         file_put_contents(BasicsConfig::pid_file(), getmypid());
         //启动信号监听

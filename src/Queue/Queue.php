@@ -46,7 +46,7 @@ class Queue
      * 队列中添加 job任务
      * @param string $queue 队列名称
      * @param callable|Job $job 任务类型
-     * @param int $delay 延时时间（秒）
+     * @param int $delay 延时时间（秒）0代表无延时
      * @return bool
      * @throws \Exception
      */

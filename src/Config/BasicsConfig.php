@@ -27,9 +27,7 @@ class BasicsConfig implements ConfigInterface
     {
         self::checkSet();
         self::$name = $name;
-        if (!file_exists($pid_path)) {
-            mkdir($pid_path, 0744, true);
-        } elseif (!is_dir($pid_path) && !is_writable($pid_path)) {
+        if (MP_QUEUE_CLI && !is_dir($pid_path) && !is_writable($pid_path)) {
             throw new \Exception('pid_path 必须是一个正确的可读写路径');
         }
         self::$pid_path = rtrim($pid_path,'/');
