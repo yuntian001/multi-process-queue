@@ -56,7 +56,7 @@ class QueueConfig implements ConfigInterface
             self::$queues[$value['name']] = new self(
                 $value['name'],
                 $value['worker_number'],
-                $value['memory_limit'],
+                $value['memory_limit']*1024*1024,
                 $value['sleep_seconds'],
                 $value['timeout'],
                 $value['fail_number'],

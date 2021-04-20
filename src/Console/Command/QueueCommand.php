@@ -18,7 +18,8 @@ class QueueCommand extends BaseCommand
 
     static protected $description = [
         'queue:clean'=>'清空队列内容 --queue test 清空指定队列:test',
-        'queue:status'=>'查看队列信息'
+        'queue:status'=>'查看队列信息 --queue test 指定队列:test',
+        'queue:failed --queue 队列名称'=>'打印失败信息详情 必须指定队列'
     ];
 
     /**
@@ -42,15 +43,21 @@ class QueueCommand extends BaseCommand
      * 获取队列信息
      */
     public function status(){
+        $this->cmd->option('queue')->describedAs('设置对应队列');
+        if($this->cmd['queue']){
+           $queues = [$this->cmd['queue']=>''];
+        }else{
+            $queues = QueueConfig::queues();
+        }
         OutPut::normal("------队列------总数量------待执行------执行中------已失败------已完成------".PHP_EOL);
-        foreach (QueueConfig::queues() as $value){
+        foreach ($queues as $key=>$value){
             OutPut::normal('   ');
-            OutPut::normal($value->name(), 10);
-            OutPut::normal(Queue::getCount($value->name(),'all'),12);
-            OutPut::normal(Queue::getCount($value->name(),'waiting'),12);
-            OutPut::normal(Queue::getCount($value->name(),'working'),12);
-            OutPut::normal(Queue::getCount($value->name(),'failed'),12);
-            OutPut::normal(Queue::getCount($value->name(),'over'),12);
+            OutPut::normal($key, 10);
+            OutPut::normal(Queue::getCount($key,'all'),12);
+            OutPut::normal(Queue::getCount($key,'waiting'),12);
+            OutPut::normal(Queue::getCount($key,'working'),12);
+            OutPut::normal(Queue::getCount($key,'failed'),12);
+            OutPut::normal(Queue::getCount($key,'over'),12);
             OutPut::normal("   ".PHP_EOL);
         }
     }

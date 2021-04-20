@@ -222,7 +222,7 @@ class Queue
      * @throws \RedisException
      */
     public function retry(int $id, string $error,int $delay = 0){
-        return $this->driver->setErrorInfo($id,$error."\n") && $this->driver->retry($id,$delay);
+        return $this->driver->setErrorInfo($id,$error."\n") && $this->driver->retry($id,time()+$delay);
     }
 
     /**

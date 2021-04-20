@@ -1,4 +1,5 @@
 <?php
+namespace MPQueueTest\Job;
 
 class TimeoutJob extends \MPQueue\Job
 {
@@ -7,12 +8,12 @@ class TimeoutJob extends \MPQueue\Job
      * 0代表永不超时 null代表使用队列超时设置
      * @var int
      */
-    protected $timeout = null;//10
+    protected $timeout = 2;//10
 
     public function handle()
     {
-        // TODO: Implement handle() method.
         var_dump('超时任务开始');
+        $b =rand(1,999);
         file_put_contents(__DIR__ . '/' . 'test.log',
             '超时任务开始' .$b.'-'. date('Y-m-d H:i:s').PHP_EOL,FILE_APPEND);
         sleep(30);
@@ -24,6 +25,7 @@ class TimeoutJob extends \MPQueue\Job
     public function timeout_handle(array $jobInfo)
     {
         var_dump($jobInfo);
-        return false;//执行完后会执行队列超时handle
+        return true;//不会调用配置handle
+//        return false;//会调用配置handle
     }
 }

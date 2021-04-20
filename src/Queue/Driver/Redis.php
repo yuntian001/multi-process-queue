@@ -155,7 +155,7 @@ if (id) then
     -- 添加到保留集合RESERVE中并设置超时重新分发时间戳
     redis.call('zAdd', KEYS[2], ARGV[1], id)
     -- 任务详情INFO设置任务状态为被取出并设置取出时间
-    redis.call('hMSet',KEYS[3]..id,'prop_time',ARGV[2])
+    redis.call('hSet',KEYS[3]..id,'prop_time',ARGV[2])
 end  
 return id
 SCRIPT;
@@ -285,7 +285,7 @@ SCRIPT;
         $script = <<<SCRIPT
 --从延时集合RESERVE中移除任务
 local number = redis.call('zRem', KEYS[1], ARGV[1])
-if (number > 0 ) then
+if (number > 0) then
     -- 获取当前任务的详情
     local info_array = redis.call('HGetAll',KEYS[3]..ARGV[1])
     number = #info_array
@@ -296,8 +296,8 @@ if (number > 0 ) then
     info['exec_number'] = info['exec_number']+1
     -- 设置当前执行的程序、开始执行时间及状态为执行中
     redis.call('hMSet',KEYS[3]..ARGV[1], 'worker_id', ARGV[2], 'start_time', ARGV[3],'exec_number',info['exec_number'])
-    -- 将任务添加到执行集合 WORKING
-    if info['timeout'] > 0) then
+    -- 将任务添加到执行集合 WORKING重试时间戳
+    if (tonumber(info['timeout']) > 0) then
         redis.call('zAdd',KEYS[2],ARGV[3]+info['timeout'],ARGV[1])
     else
         redis.call('zAdd',KEYS[2],0,ARGV[1])
@@ -329,7 +329,7 @@ SCRIPT;
         $script = <<<SCRIPT
 --从执行集合 WORKING中移除任务
 local number = redis.call('zRem', KEYS[1], ARGV[1])
-if(number > 0) then
+if (number > 0) then
 --删除任务详情
 redis.call('del', KEYS[2]..ARGV[1])
 --完成数量加1
@@ -356,7 +356,7 @@ SCRIPT;
         $script = <<<SCRIPT
 --从执行集合WORKING中获取任务
 local score = redis.call('zScore', KEYS[1], ARGV[1])
-if (score ~= -1 ) then
+if (score ~= -1) then
     --设置超时时间为-1 表示已被worker进程接收去执行timeout
     redis.call('zAdd', KEYS[1], -1, ARGV[1])
     -- 获取当前任务的详情
@@ -395,7 +395,7 @@ SCRIPT;
 --从详情hash中获取错误信息
 local info = redis.call('hGet', KEYS[1], 'error_info')
 --追加错误信息到详情hash
-if (info ~= nil ) then
+if (info ~= nil) then
 redis.call('hSet', KEYS[1], 'error_info', info..ARGV[1])
 return true
 end
@@ -411,7 +411,7 @@ SCRIPT;
     /**
      * 重新发布一遍执行失败的任务
      * @param int $id
-     * @param int $delay
+     * @param int $delay 重试时间戳
      * @return mixed|string
      * @throws \RedisException
      */
@@ -446,7 +446,7 @@ SCRIPT;
     {
         $script = <<<SCRIPT
 local info = redis.call('HGetAll',KEYS[1]..ARGV[1])
-if(#info > 0) then
+if (#info > 0) then
     --详细信息转移到失败记录FAILED表
     redis.call('hSet', KEYS[2],ARGV[1],ARGV[2])
     --从执行集合 WORKING 中移除任务

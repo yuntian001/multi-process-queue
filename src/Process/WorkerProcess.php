@@ -298,8 +298,8 @@ class WorkerProcess
                 $error = BasicsConfig::name() . ':' . getmypid() . ':' . $e->getCode() . ':' . $e->getMessage();
                 try {
                     $handle_result = false;
-                    if ($info['job'] instanceof Job) {
-                        $handle_result = $info['job']->fail_handle($info, $e);
+                    if ($job instanceof Job) {
+                        $handle_result = $job->fail_handle($info, $e);
                     }
                     if ($handle_result === false && QueueConfig::fail_handle()) {
                         call_user_func(QueueConfig::fail_handle(), $info, $e);
@@ -317,7 +317,7 @@ class WorkerProcess
         }
         $this->queueDriver->close();
         $this->status = ProcessConfig::STATUS_IDLE;
-        if(QueueConfig::queue()->memory_limit() && memory_get_usage() > (QueueConfig::queue()->memory_limit()*1024)){
+        if(QueueConfig::queue()->memory_limit() && memory_get_usage() > (QueueConfig::queue()->memory_limit())){
             Log::error('内存占用过多：'.memory_get_usage());
             $this->process->exit();
         }
@@ -339,9 +339,13 @@ class WorkerProcess
         if ($info = $this->queueDriver->consumeTimeoutJob($id)) {
             $error = '执行超时';
             try {
+                $job = $info['job'];
+                if (is_string($job) && class_exists($job)) {
+                    $job = new $job;
+                }
                 $handle_result = false;
-                if ($info['job'] instanceof Job) {
-                    $handle_result = $info['job']->timeout_handle($info);
+                if ($job instanceof Job) {
+                    $handle_result = $job->timeout_handle($info);
                 }
                 if ($handle_result === false && QueueConfig::timeout_handle()) {
                     call_user_func(QueueConfig::timeout_handle(), $info);

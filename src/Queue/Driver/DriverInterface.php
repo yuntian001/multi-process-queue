@@ -108,7 +108,7 @@ interface DriverInterface
     /**
      * 重新发布一遍执行失败的任务
      * @param int $id
-     * @param int $delay
+     * @param int $delay 重试时间戳
      * @return mixed|string
      */
     public function retry(int $id, int $delay = 0);

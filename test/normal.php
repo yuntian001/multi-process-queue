@@ -3,7 +3,7 @@
 use MPQueue\Config\Config;
 use MPQueue\Queue\Queue;
 
-require_once __DIR__ . '/../../vendor/autoload.php';
+require_once __DIR__ . '/../vendor/autoload.php';
 $b = rand(0,99999);
 $a = function ()use($b) {
     file_put_contents(__DIR__ . '/' . 'test.log',
@@ -11,6 +11,6 @@ $a = function ()use($b) {
     sleep(20);
     file_put_contents(__DIR__ . '/' . 'test.log',
         '正常任务结束' .$b. date('Y-m-d H:i:s'),FILE_APPEND);};
-Config::set(include(__DIR__ . '/../Config.php'));
+Config::set(include(__DIR__ . '/Config.php'));
 
 Queue::push('test', $a);

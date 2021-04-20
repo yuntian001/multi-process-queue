@@ -4,7 +4,6 @@ namespace MPQueue\Process;
 
 use MPQueue\Client\Process\ManageProcessClient;
 use MPQueue\Config\BasicsConfig;
-use MPQueue\Config\LogConfig;
 use MPQueue\Config\ProcessConfig;
 use MPQueue\Config\QueueConfig;
 use MPQueue\Library\Helper;
@@ -87,7 +86,6 @@ class ManageProcess
             ];
             $this->createMasterProcess($queue->name());
         }
-        $a > 1;
         $this->overMonitor();
     }
 

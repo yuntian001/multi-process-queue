@@ -1,5 +1,5 @@
 {
-    "name": "littlesqx/multi-process-queue",
+    "name": "yuntian001/multi-process-queue",
     "description": "一个基于swoole的多进程队列系统（支持协程）",
     "type": "library",
     "license": "MIT",
@@ -11,17 +11,18 @@
     "require": {
         "php": ">=7.1",
         "ext-json": "*",
-        "ext-swoole": ">=4.4",
         "monolog/monolog": "^2.2",
         "opis/closure": "^3.6",
         "nategood/commando": "^0.4.0"
     },
     "autoload": {
         "psr-4": {
-            "MPQueue\\": "src"
+            "MPQueue\\": "src",
+            "MPQueueTest\\": "test"
         }
     },
     "suggest": {
-        "php": ">=7.3"
+        "php": ">=7.1",
+        "ext-swoole": ">=4.4"
     }
 }

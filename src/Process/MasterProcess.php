@@ -4,7 +4,6 @@ namespace MPQueue\Process;
 
 use Co\Channel;
 use MPQueue\Client\Process\MasterProcessClient;
-use MPQueue\Client\Process\WorkerClient;
 use MPQueue\Config\BasicsConfig;
 use MPQueue\Config\ProcessConfig;
 use MPQueue\Config\QueueConfig;

@@ -32,7 +32,7 @@ abstract class Job
      * 返回队列任务超时秒数/0（0代表不超时）
      * @return int|null
      */
-    public function getTimeout():int
+    public function getTimeout()
     {
         return $this->timeout;
     }
@@ -41,7 +41,7 @@ abstract class Job
      * 返回允许最大失败次数
      * @return int|null
      */
-    public function getFailNumber():int
+    public function getFailNumber()
     {
         return $this->fail_number;
     }
@@ -50,7 +50,7 @@ abstract class Job
      * 返回失败后延迟重试时间
      * @return int|null
      */
-    public function getFailExpire():int
+    public function getFailExpire()
     {
         return $this->fail_expire;
     }
@@ -67,7 +67,7 @@ abstract class Job
      * @param array $jobInfo 任务详细信息数组
      */
     public function timeout_handle(array $jobInfo){
-        return true;
+        return false;
     }
 
     /**
@@ -78,7 +78,7 @@ abstract class Job
      */
     public function fail_handle(array $jobInfo,\Throwable $e)
     {
-        return true;
+        return false;
     }
 
 }
