@@ -19,7 +19,7 @@ class QueueCommand extends BaseCommand
     static protected $description = [
         'queue:clean'=>'清空队列内容 --queue test 清空指定队列:test',
         'queue:status'=>'查看队列信息 --queue test 指定队列:test',
-        'queue:failed --queue 队列名称'=>'打印失败信息详情 必须指定队列'
+        'queue:failed'=>'打印失败信息详情 必须指定队列 --queue test 指定队列:test'
     ];
 
     /**

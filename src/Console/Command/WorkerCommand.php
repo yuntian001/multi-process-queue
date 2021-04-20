@@ -32,9 +32,9 @@ class WorkerCommand extends BaseCommand
     static protected $description = [
         'worker:start'=>'启动 携带参数-d 后台启动',
         'worker:stop'=>'停止',
-        'worker:restart'=>'重启 -d 后台启动',
+        'worker:restart'=>'重启 携带参数-d 后台启动',
         'worker:reload'=>'平滑重启',
-        'worker:status'=>'状态',
+        'worker:status'=>'查看进程运行状态',
     ];
 
     public function __construct()
@@ -49,8 +49,12 @@ class WorkerCommand extends BaseCommand
     public function start()
     {
         $this->cmd->option('d')->boolean()->describedAs('携带此参数代表以守护进程模式启动');
+        if ($this->manage->getPid()) {
+            Log::error('已启动不可重复启动');
+            exit();
+        }
         if($this->cmd['d']){
-            OutPut::normal("以守护进程方式启动,请去日志中查询详细信息,日志目录地址:" . LogConfig::path() . "\n");
+            OutPut::normal("以守护进程方式启动,请去日志中查询详细信息,日志目录地址:" . realpath(LogConfig::path()) . "\n");
             Process::daemon();
             ProcessConfig::setDaemon(true,false);
         }

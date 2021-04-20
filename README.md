@@ -31,8 +31,15 @@
 |queue[0].timeout | int | 否 | 120 | 超时时间(s)以投递任务方为准 |
 |queue[0].fail_number | int | 否 | 3 | 最大失败次数以投递任务方为准 |
 |queue[0].fail_expire | int | 否 | 3 | 失败延时投递时间(s)以投递任务方为准 |
-|queue[0].timeout_handle | callable | 否 | 空 | 任务超时触发函数 | |queue[0].fail_handle | callable | 否 | 空 | 任务失败触发函数 | |queue[0]
+|queue[0].timeout_handle | callable | 否 | 空 | 任务超时句柄 | 
+|queue[0].fail_handle | callable | 否 | 空 | 任务失败句柄 |
 |queue[0].worker_start_handle | callable | 否 | 空 | worker进程启动加载函数（当前队列有效） |
+
+timeout_handle 会传入一个参数$info任务详细信息
+
+fail_handle 会传入两个参数$info任务详细信息、$e出错的异常类
+
+#### 注意：任务超时后会触发timeout_handle只会会直接记录为失败，不会根据fail_number进行失败重试，也不会触发fail_handle。
 
 ### 配置示例
 ```
@@ -49,7 +56,7 @@
              },//超时后触发函数
             'fail_handle'=>function(){
                 var_dump('失败了');
-            },//失败回调函数
+            },//失败句柄
         ],
         [
             'name' => 'test2',//队列名称
@@ -67,13 +74,11 @@
    //即将发布到composer，请稍后
  ```
  ### 2. 启动队列
- - 新建 main.php 内容如下
+ - 新建 main.php
  ```
 <?php
 define('MP_QUEUE_CLI', true);
-
 use MPQueue\Config\Config;
-
 require_once __DIR__ . '/vendor/autoload.php';
 $config = [
     'basics' => [
@@ -88,7 +93,7 @@ $config = [
             },//超时后触发函数
             'fail_handle' => function () {
                 var_dump('失败了');
-            },//失败回调函数
+            },//失败句柄
         ],
         [
             'name' => 'test2',//队列名称
@@ -115,13 +120,12 @@ Config::set($config);
 ```
   queue:clean 清空队列内容 --queue test 清空指定队列:test
   queue:status 查看队列信息 --queue test 指定队列:test
-  queue:failed
+  queue:failed 打印失败信息详情 必须指定队列 --queue test 指定队列:test
   worker:start 启动 携带参数-d 后台启动
   worker:stop 停止
-  worker:restart 重启 -d 后台启动
+  worker:restart 重启 携带参数-d 后台启动
   worker:reload 平滑重启
-  worker:status 状态
-
+  worker:status 查看进程运行状态
  ```
  ### 3. 投递任务
   - 执行以下代码投递任务（可web调用，调用进程无需加载swoole扩展）
@@ -140,7 +144,7 @@ Config::set($config);
                 },//超时后触发函数
                 'fail_handle' => function () {
                     var_dump('失败了');
-                },//失败回调函数
+                },//失败句柄
             ],
             [
                 'name' => 'test2',//队列名称
@@ -175,5 +179,81 @@ MPQueue\Queue\Queue::push 接收三个参数依次分别为：
 - worker:reload 只会重启worker进程，不会重新加载配置文件，更改配置文件后需要worker:restart后才有效。
 
 ## 在laravel中使用
+- 在config文件夹中建立配置文件mp-queue.php
+```
+<?php
+//当前仅为示例，具体配置可按文档自定义
+return [
+    'basics'=>[
+        'name'=>'mp-queue-1',//多个服务器同时启动时需要分别设置名字
+        'driver'=> new \MPQueue\Queue\Driver\Redis('127.0.0.1'),
+        'worker_start_handle'=>function(){
+            //加载laravel核心程序
+            defined('LARAVEL_START') || define('LARAVEL_START', microtime(true));
+            $app = require_once __DIR__.'/../bootstrap/app.php';
+            $app->make(Illuminate\Contracts\Console\Kernel::class)->bootstrap();
+        }
+    ],
+    'queue' => [
+        [
+            'name' => 'test',//队列名称
+            'timeout_handle'=>function($info){
+                //自定义逻辑如存储到mysql
+             },//超时后触发函数
+            'fail_handle'=>function($info,$e){
+                //自定义逻辑如存储到mysql
+            },//失败句柄
+        ],
+        [
+            'name' => 'test2',//队列名称
+            'worker_number' => 4,//当前队列工作进程数量
+            'memory_limit' => 0, //当前队列工作进程的最大使用内存，超出则重启。单位 MB
+        ]
+    ],
+    'log' => [
+        'path' => __DIR__.'/../storage/logs',//日志存放目录需要可写权限
+    ]
+];
 
+```
+ - 在项目根目录建立启动文件 mp-queue
+```
+#!/usr/bin/env php
+<?php
+define('MP_QUEUE_CLI', true);
+use MPQueue\Config\Config;
+
+require __DIR__.'/vendor/autoload.php';
+Config::set(include(__DIR__.'/config/mp-queue.php'));
+(new \MPQueue\Console\Application())->run();
+```
+- 创建job类 app/Job/HelloWord
+```
+<?php
+//位置位于app/Job/HelloWord.php
+namespace App\Job;
+
+use Illuminate\Support\Facades\Log;
+use MPQueue\Job;
+
+Class HelloWord extends Job{
+    //handle内可调用laravel方法和函数，但handle函数不支持依赖注入传参
+    public function handle()
+    {
+        var_dump('hello word!');
+        Log::info('hello word!');
+    }
+}
+
+```
+ - 后台启动队列(或不加-d直接启动)
+```
+ php mp-queue worker:start -d
+```
+
+  - 投递任务 在任意位置(如控制器)加入以下代码进行已投递
+```
+    \MPQueue\Config\Config::set(config('mp-queue'));//配置项设置也可放在app容器中AppServiceProvider boot() 统一加载
+    \MPQueue\Queue\Queue::push('test',\App\Job\HelloWord::class);
+```
 ## 在thinkphp中使用
