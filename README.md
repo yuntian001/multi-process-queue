@@ -71,7 +71,7 @@ fail_handle 会传入两个参数$info任务详细信息、$e出错的异常类
  ### 1.安装
 
  ```
-   //即将发布到composer，请稍后
+  composer require yuntian001/multi-process-queue
  ```
  ### 2. 启动队列
  - 新建 main.php
@@ -179,6 +179,10 @@ MPQueue\Queue\Queue::push 接收三个参数依次分别为：
 - worker:reload 只会重启worker进程，不会重新加载配置文件，更改配置文件后需要worker:restart后才有效。
 
 ## 在laravel中使用
+- 安装
+```
+  composer require yuntian001/multi-process-queue
+```
 - 在config文件夹中建立配置文件mp-queue.php
 ```
 <?php
