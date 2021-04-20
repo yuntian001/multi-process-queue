@@ -1,7 +1,6 @@
 {
     "name": "yuntian001/multi-process-queue",
-    "description": "一个基于swoole的多进程队列系统（支持协程）",
-    "type": "library",
+    "description": " ",
     "license": "MIT",
     "authors": [
         {
@@ -9,11 +8,7 @@
         }
     ],
     "require": {
-        "php": ">=7.1",
-        "ext-json": "*",
-        "monolog/monolog": "^2.2",
-        "opis/closure": "^3.6",
-        "nategood/commando": "^0.4.0"
+
     },
     "autoload": {
         "psr-4": {
