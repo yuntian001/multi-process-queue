@@ -1,6 +1,6 @@
 <?php
 
-class Timeout extends \MPQueue\Job
+class TimeoutJob extends \MPQueue\Job
 {
     /**
      * 任务超时时间（超时后会直接失败不会重试任务）

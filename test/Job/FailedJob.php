@@ -1,6 +1,6 @@
 <?php
 
-class Failed extends \MPQueue\Job{
+class FailedJob extends \MPQueue\Job{
 
     protected $fail_expire = 1;
     protected $fail_number = null;
