@@ -1,23 +1,10 @@
 {
     "name": "yuntian001/multi-process-queue",
-    "description": " ",
-    "license": "MIT",
     "authors": [
         {
-            "name": "yuntian001"
+            "name": "yuntian001",
+            "email": "a479820787@outlick.com"
         }
     ],
-    "require": {
-
-    },
-    "autoload": {
-        "psr-4": {
-            "MPQueue\\": "src",
-            "MPQueueTest\\": "test"
-        }
-    },
-    "suggest": {
-        "php": ">=7.1",
-        "ext-swoole": ">=4.4"
-    }
+    "require": {}
 }
