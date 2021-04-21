@@ -1,15 +1,30 @@
 # multi-process-queue
 
-基于swoole的多进程队列系统，多进程、低延时、低资源占用。支持一键化协程、超时控制、失败重试、毫秒级延时
+基于swoole的多进程队列系统，manage进程管理子进程，master进程监听队列分发任务，worker进程执行任务，
+多进程、低延时、低资源占用。
 
 版本要求：
 
  - php>=7.1
-
  - swoole >= 4.4
 
 当前支持的驱动 
- - redis （版本需大于3.0.2）
+ - redis （redis版本需大于3.0.2）
+
+### 特性
+ - 最低毫秒级延时任务
+ - 自定义重试次数和错误回调
+ - 自定义超时时间和超时回调
+ - 自定义启动预执行函数，方便初始化其他框架与其他项目配合使用。
+ - master协成监听队列降低延时
+ - worker进程支持一键化携程协程支持
+ - 多种命令支持，支持后台守护运行,无需其余进程管理工具。
+ - 支持分布式部署
+
+### 进程结构图
+
+![](process_structure.png)
+
 ### 配置说明
 
 | 配置项 | 类型 | 是否必填 | 默认值 | 说明 |
@@ -31,8 +46,8 @@
 |queue[0].timeout | int | 否 | 120 | 超时时间(s)以投递任务方为准 |
 |queue[0].fail_number | int | 否 | 3 | 最大失败次数以投递任务方为准 |
 |queue[0].fail_expire | int | 否 | 3 | 失败延时投递时间(s)以投递任务方为准 |
-|queue[0].timeout_handle | callable | 否 | 空 | 任务超时句柄 | 
-|queue[0].fail_handle | callable | 否 | 空 | 任务失败句柄 |
+|queue[0].timeout_handle | callable | 否 | 空 | 任务超时执行函数 | 
+|queue[0].fail_handle | callable | 否 | 空 | 任务失败执行函数 |
 |queue[0].worker_start_handle | callable | 否 | 空 | worker进程启动加载函数（当前队列有效） |
 
 timeout_handle 会传入一个参数$info任务详细信息
@@ -56,7 +71,7 @@ fail_handle 会传入两个参数$info任务详细信息、$e出错的异常类
              },//超时后触发函数
             'fail_handle'=>function(){
                 var_dump('失败了');
-            },//失败句柄
+            },//失败执行函数
         ],
         [
             'name' => 'test2',//队列名称
@@ -93,7 +108,7 @@ $config = [
             },//超时后触发函数
             'fail_handle' => function () {
                 var_dump('失败了');
-            },//失败句柄
+            },//失败执行函数
         ],
         [
             'name' => 'test2',//队列名称
@@ -144,7 +159,7 @@ Config::set($config);
                 },//超时后触发函数
                 'fail_handle' => function () {
                     var_dump('失败了');
-                },//失败句柄
+                },//失败执行函数
             ],
             [
                 'name' => 'test2',//队列名称
@@ -169,7 +184,7 @@ MPQueue\Queue\Queue::push 接收三个参数依次分别为：
 
   $job为静态方法/\MPQueue\Job的实现类/函数时 队列执行进程需要含有对应静态方法/\MPQueue\Job的实现类/函数。
   
-  强烈建议投递$job使用\MPQueue\Job子类，子类中可自定义 超时时间、允许失败次数、延时重试时间、超时句柄、失败句柄。具体参数说明请进入[src/Job.php](src/Job.php)进行查看
+  强烈建议投递$job使用\MPQueue\Job子类，子类中可自定义 超时时间、允许失败次数、延时重试时间、超时执行函数、失败执行函数。具体参数说明请进入[src/Job.php](src/Job.php)进行查看
 
 - $delay 延时投递时间(s) 默认为0（立即投递）
 
@@ -206,7 +221,7 @@ return [
              },//超时后触发函数
             'fail_handle'=>function($info,$e){
                 //自定义逻辑如存储到mysql
-            },//失败句柄
+            },//失败执行函数
         ],
         [
             'name' => 'test2',//队列名称
