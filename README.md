@@ -271,7 +271,7 @@ Class HelloWord extends Job{
  php mp-queue worker:start -d
 ```
 
-  - 投递任务 在任意位置(如控制器)加入以下代码进行已投递
+  - 投递任务 在任意位置(如控制器)加入以下代码进行投递
 ```
     \MPQueue\Config\Config::set(config('mp-queue'));//配置项设置也可放在app容器中AppServiceProvider boot() 统一加载
     \MPQueue\Queue\Queue::push('test',\App\Job\HelloWord::class);
@@ -348,7 +348,7 @@ Class HelloWord extends Job{
 ```
  php mp-queue worker:start -d
 ```
-- 投递任务 在任意位置(如控制器)加入以下代码进行已投递
+- 投递任务 在任意位置(如控制器)加入以下代码进行投递
 ```
     \MPQueue\Config\Config::set(config('mp-queue'));//配置项设置也可注册在初始化化行为(app_init)中 统一加载
     \MPQueue\Queue\Queue::push('test',\app\job\HelloWord::class);
