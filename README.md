@@ -1,7 +1,7 @@
 # multi-process-queue
 
 基于swoole的多进程队列系统，manage进程管理子进程，master进程监听队列分发任务，worker进程执行任务，
-多进程、低延时、低资源占用。
+多进程、低延时、低资源占用。可与 laravel thinkphp 等框架配合使用
 
 版本要求：
 
@@ -336,7 +336,7 @@ use MPQueue\Job;
 use think\Log;
 
 Class HelloWord extends Job{
-    //handle内可调用laravel方法和函数，但handle函数不支持依赖注入传参
+    //handle内可调用thinkphp方法和函数，但handle函数不支持依赖注入传参
     public function handle()
     {
         var_dump('hello word!');
