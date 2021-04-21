@@ -15,10 +15,11 @@
  - 最低毫秒级延时任务
  - 自定义重试次数和错误回调
  - 自定义超时时间和超时回调
- - 自定义启动预执行函数，方便初始化其他框架与其他项目配合使用。
- - master协成监听队列降低延时
+ - 自定义启动预执行函数，方便初始化其他框架与其他项目配合使用
+ - master协程监听队列降低延时
+ - 多worker进程消费任务  
  - worker进程支持一键化携程协程支持
- - 多种命令支持，支持后台守护运行,无需其余进程管理工具。
+ - 多种命令支持，支持后台守护运行,无需其余进程管理工具
  - 支持分布式部署
 
 ### 进程结构图
@@ -246,7 +247,7 @@ require __DIR__.'/vendor/autoload.php';
 Config::set(include(__DIR__.'/config/mp-queue.php'));
 (new \MPQueue\Console\Application())->run();
 ```
-- 创建job类 app/Job/HelloWord
+ - 创建job类 App\Job\HelloWord
 ```
 <?php
 //位置位于app/Job/HelloWord.php
@@ -275,4 +276,80 @@ Class HelloWord extends Job{
     \MPQueue\Config\Config::set(config('mp-queue'));//配置项设置也可放在app容器中AppServiceProvider boot() 统一加载
     \MPQueue\Queue\Queue::push('test',\App\Job\HelloWord::class);
 ```
-## 在thinkphp中使用
+## 在thinkphp5.0中使用
+- 安装
+```
+  composer require yuntian001/multi-process-queue
+```
+- 在application/extra文件夹中建立配置文件mp-queue.php
+```
+<?php
+//当前仅为示例，具体配置可按文档自定义
+return [
+    'basics'=>[
+        'name'=>'mp-queue-1',//多个服务器同时启动时需要分别设置名字
+        'driver'=> new \MPQueue\Queue\Driver\Redis('127.0.0.1'),
+        'worker_start_handle'=>function(){
+            //加载thinkphp核心应用
+            \think\App::initCommon();
+        }
+    ],
+    'queue' => [
+        [
+            'name' => 'test',//队列名称
+            'timeout_handle'=>function($info){
+                //自定义逻辑如存储到mysql
+            },//超时后触发函数
+            'fail_handle'=>function($info,$e){
+                //自定义逻辑如存储到mysql
+            },//失败执行函数
+        ],
+        [
+            'name' => 'test2',//队列名称
+            'worker_number' => 4,//当前队列工作进程数量
+            'memory_limit' => 0, //当前队列工作进程的最大使用内存，超出则重启。单位 MB
+        ]
+    ],
+    'log' => [
+        'path' => __DIR__.'/../../runtime',//日志存放目录需要可写权限
+    ]
+];
+
+```
+ - 在项目根目录建立启动文件mp-queue
+```
+#!/usr/bin/env php
+<?php
+define('MP_QUEUE_CLI', true);
+define('APP_PATH', __DIR__ . '/application/');
+// ThinkPHP 基础文件
+require __DIR__ . '/thinkphp/base.php';
+\MPQueue\Config\Config::set(include(__DIR__.'/application/extra/mp-queue.php'));
+(new \MPQueue\Console\Application())->run();
+```
+- 创建job类 app\job\HelloWord
+```
+<?php
+//application/job/HelloWord.php
+namespace app\job;
+use MPQueue\Job;
+use think\Log;
+
+Class HelloWord extends Job{
+    //handle内可调用laravel方法和函数，但handle函数不支持依赖注入传参
+    public function handle()
+    {
+        var_dump('hello word!');
+        Log::info('hello word!');
+    }
+}
+```
+- 后台启动队列(或不加-d直接启动)
+```
+ php mp-queue worker:start -d
+```
+- 投递任务 在任意位置(如控制器)加入以下代码进行已投递
+```
+    \MPQueue\Config\Config::set(config('mp-queue'));//配置项设置也可注册在初始化化行为(app_init)中 统一加载
+    \MPQueue\Queue\Queue::push('test',\app\job\HelloWord::class);
+```

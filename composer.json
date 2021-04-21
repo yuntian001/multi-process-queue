@@ -1,6 +1,7 @@
 {
     "name": "yuntian001/multi-process-queue",
     "description": "基于swoole的多进程队列系统（支持协程）",
+    "version":"1.0.0",
     "type": "library",
     "license": "MIT",
     "authors": [
