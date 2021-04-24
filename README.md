@@ -12,14 +12,14 @@
  - redis （redis版本需大于3.0.2）
 
 ### 特性
- - 最低毫秒级延时任务
+ - 最低毫秒级任务延时
  - 自定义重试次数和错误回调
  - 自定义超时时间和超时回调
  - 自定义启动预执行函数，方便初始化其他框架与其他项目配合使用
  - master协程监听队列降低延时
  - 多worker进程消费任务  
- - worker进程支持一键化携程协程支持
- - 多种命令支持，支持后台守护运行,无需其余进程管理工具
+ - worker进程支持一键化协程协程
+ - 支持后台守护运行,无需其余进程管理工具
  - 支持分布式部署
 
 ### 进程结构图
@@ -51,11 +51,11 @@
 |queue[0].fail_handle | callable | 否 | 空 | 任务失败执行函数 |
 |queue[0].worker_start_handle | callable | 否 | 空 | worker进程启动加载函数（当前队列有效） |
 
-timeout_handle 会传入一个参数$info任务详细信息
+timeout_handle 会传入一个参数 $info 任务详细信息
 
-fail_handle 会传入两个参数$info任务详细信息、$e出错的异常类
+fail_handle 会传入两个参数 $info 任务详细信息、$e出错的异常类
 
-#### 注意：任务超时后会触发timeout_handle只会会直接记录为失败，不会根据fail_number进行失败重试，也不会触发fail_handle。
+#### 注意：任务超时后会触发timeout_handle会直接记录为失败，不会根据fail_number进行失败重试，也不会触发fail_handle。
 
 ### 配置示例
 ```
@@ -175,8 +175,8 @@ Config::set($config);
      }
      MPQueue\Queue\Queue::push('test', $job,10);
 ```
-MPQueue\Queue\Queue::push 接收三个参数依次分别为：
--  $queue 队列名称
+MPQueue\Queue\Queue::push 接收三个参数：
+- $queue 队列名称
 - $job   投递的任务
  
   $job 允许的类型为callable 或 \MPQueue\Job的子类 具体测试可参考test文件夹
