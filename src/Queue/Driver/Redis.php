@@ -127,24 +127,29 @@ class Redis implements DriverInterface
      */
     public function push(string $job, int $delay = 0, int $timeout = 0, int $fail_number = 0, $fail_expire = 3): bool
     {
-        $redis = $this->getConnect();
-        $id = $redis->incr($this->getKey(self::TASK_NUMBER));
-        $redis->hMset($this->getKey(self::INFO) . $id, [
-            'job' => $job,//任务对应信息序列化后的字符串
-            'create_time' => time(),//任务创建时间
-            'exec_number' => 0,//已执行次数（失败再次执行后会加一）
-            'worker_id' => '',//执行进程id
-            'start_time' => 0,//开始执行时间
-            'timeout' => $timeout,//执行超时时间
-            'fail_number'=>$fail_number,//最大失败次数
-            'fail_expire'=>$fail_expire,//失败后重试延时(秒)
-            'error_info' => '',//出错信息
-        ]);
-        if ($delay > 0) {
-            $redis->zAdd($this->getKey(self::DELAYED), time() + $delay, $id);
-        } else {
-            $redis->rPush($this->getKey(self::WAITING), $id);
-        }
+        $script = <<<SCRIPT
+local id = redis.call('incr', KEYS[1])
+redis.call('hMset',KEYS[2]..id,'job',ARGV[1],'create_time',ARGV[2],'exec_number',0,'worker_id','','start_time',0,'timeout',ARGV[3],'fail_number',ARGV[4],'fail_expire',ARGV[5],'error_info','')
+if (ARGV[6] > ARGV[2]) then
+redis.call('zAdd',KEYS[3],ARGV[6],id)
+else
+redis.call('rPush',KEYS[4],id)
+end
+return id
+SCRIPT;
+        $time = microtime(true);
+        return $this->eval($script, [
+            $this->getKey(self::TASK_NUMBER),
+            $this->getKey(self::INFO),
+            $this->getKey(self::DELAYED),
+            $this->getKey(self::WAITING),
+            $job,
+            $time,
+            $timeout,
+            $fail_number,
+            $fail_expire,
+            $delay+$time
+        ], 4);
         return true;
     }
 
@@ -162,7 +167,7 @@ if (id) then
     -- 添加到保留集合RESERVE中并设置超时重新分发时间戳
     redis.call('zAdd', KEYS[2], ARGV[1], id)
     -- 任务详情INFO设置任务状态为被取出并设置取出时间
-    redis.call('hSet',KEYS[3]..id,'prop_time',ARGV[2])
+    redis.call('hSet',KEYS[3]..id,'pop_time',ARGV[2])
 end  
 return id
 SCRIPT;
@@ -170,8 +175,8 @@ SCRIPT;
             $this->getKey(self::WAITING),
             $this->getKey(self::RESERVE),
             $this->getKey(self::INFO),
-            time() + Queue::WORKER_POP_TIMEOUT,
-            time()
+            microtime(true) + Queue::WORKER_POP_TIMEOUT,
+            microtime(true)
         ], 3);
     }
 
@@ -197,7 +202,7 @@ SCRIPT;
         return $this->eval($script, [
             $this->getKey(self::DELAYED),
             $this->getKey(self::WAITING),
-            time(),
+            microtime(true),
             $number
         ], 2);
     }
@@ -213,8 +218,8 @@ SCRIPT;
 -- 从分配延时集合RESERVE中弹出number个任务
 local ids = redis.call('zRangeByScore', KEYS[1], 1 , ARGV[1], 'LIMIT' , 0 ,ARGV[2])
 if (#ids ~= 0) then
-    -- 将任务id提交到推入list WAITING尾部
-    redis.call('rPush',KEYS[2],unpack(ids))
+    -- 将任务id提交到推入list WAITING头部让其优先弹出
+    redis.call('lPush',KEYS[2],unpack(ids))
     -- 从延时集合DELAYED中移除对应id
     redis.call('zRem',KEYS[1],unpack(ids))
 end  
@@ -223,7 +228,7 @@ SCRIPT;
         return $this->eval($script, [
             $this->getKey(self::RESERVE),
             $this->getKey(self::WAITING),
-            time(),
+            microtime(true),
             $number
         ], 2);
     }
@@ -250,7 +255,7 @@ SCRIPT;
         return $this->eval($script, [
             $this->getKey(self::RETRY),
             $this->getKey(self::WAITING),
-            time(),
+            microtime(true),
             $number
         ], 2);
     }
@@ -267,7 +272,7 @@ SCRIPT;
 -- 从执行中集合WORKING中弹出number个任务
 local ids = redis.call('zRangeByScore', KEYS[1], 1 , ARGV[1], 'LIMIT' , 0 ,1)
 if (#ids ~= 0) then
-    -- 设置新的超时重试时间
+    -- 设置新的超时分配时间
     redis.call('zAdd',KEYS[1], ARGV[2], ids[1])
     return ids[1]
 end  
@@ -275,8 +280,8 @@ return false
 SCRIPT;
         return $this->eval($script, [
             $this->getKey(self::WORKING),
-            time(),
-            time() + Queue::WORKER_POP_TIMEOUT
+            microtime(true),
+            microtime(true) + Queue::WORKER_POP_TIMEOUT
         ], 1);
     }
 
@@ -319,7 +324,7 @@ SCRIPT;
             $this->getKey(self::INFO),
             $id,
             BasicsConfig::name() . ':' . getmypid(),
-            time(),
+            microtime(true),
         ], 3);
         $info && $info = json_decode($info, true);
         return $info;
@@ -418,7 +423,7 @@ SCRIPT;
     /**
      * 重新发布一遍执行失败的任务
      * @param int $id
-     * @param int $delay 重试时间戳
+     * @param int $delay 重试延时时间（s 支持小数精度到0.001）
      * @return mixed|string
      * @throws \RedisException
      */
@@ -438,7 +443,7 @@ SCRIPT;
             $this->getKey(self::WORKING),
             $this->getKey(self::RETRY),
             $id,
-            $delay,
+            microtime(true)+$delay,
         ], 2);
     }
 
@@ -474,12 +479,12 @@ SCRIPT;
     /**
      * 设置执行中任务的执行超时时间
      * @param $id
-     * @param int $timeout
+     * @param int $timeout(s 支持小数精度到0.001)
      * @return int Number of values added
      */
     public function setWorkingTimeout($id, $timeout = 0): int
     {
-        $this->getConnect()->zAdd($this->getKey(self::WORKING), ['XX'], $timeout ? (time() + $timeout) : 0, $id);
+        $this->getConnect()->zAdd($this->getKey(self::WORKING), ['XX'], $timeout ? (microtime(true) + $timeout) : 0, $id);
         return true;
     }
 

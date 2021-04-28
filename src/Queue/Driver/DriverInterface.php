@@ -35,7 +35,7 @@ interface DriverInterface
      * 添加队列任务
      * @param string $job 任务对应信息序列化后的字符串
      * @param int $delay 延时投递时间
-     * @param int $timeout 超时时间 0代表不超时
+     * @param int $timeout 超时时间（s 支持小数 精度到0.001） 0代表不超时
      * @param int $fail_number 最大失败次数
      * @param int $fail_expire 失败重新投递延时
      * @return bool
@@ -108,7 +108,7 @@ interface DriverInterface
     /**
      * 重新发布一遍执行失败的任务
      * @param int $id
-     * @param int $delay 重试时间戳
+     * @param int $delay 重试延时时间（s 支持小数 精度到0.001）
      * @return mixed|string
      */
     public function retry(int $id, int $delay = 0);
@@ -123,7 +123,7 @@ interface DriverInterface
     /**
      * 设置执行中任务的执行超时时间
      * @param $id
-     * @param int $timeout 0代表不超时
+     * @param int $timeout 0代表不超时（s 支持小数 精度到0.001）
      * @return int Number of values added
      */
     public function setWorkingTimeout($id, $timeout = 0):int;

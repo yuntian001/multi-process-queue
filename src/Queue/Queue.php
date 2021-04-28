@@ -23,7 +23,7 @@ class Queue
 {
     private $driver = null;
     private $idChannel = null;
-    const WORKER_POP_TIMEOUT = 1; //弹出任务后，分发worker开始执行之间时间间隔（单位秒，超时后会被重新分发给其他worker）
+    const WORKER_POP_TIMEOUT = 0.5; //弹出任务后，分发worker开始执行之间时间间隔（单位秒，超时后会被重新分发给其他worker）
 
     /**
      * Queue constructor.
@@ -46,7 +46,7 @@ class Queue
      * 队列中添加 job任务
      * @param string $queue 队列名称
      * @param callable|Job $job 任务类型
-     * @param int $delay 延时时间（秒）0代表无延时
+     * @param int $delay 延时时间（秒 支持小数精度到0.001）0代表无延时
      * @return bool
      * @throws \Exception
      */
@@ -69,9 +69,9 @@ class Queue
         }
         return  BasicsConfig::driver()->setQueue($queue)->push(JobSerialize::serialize($job),
             $delay,
-            max(0,(int)$timeout),
+            max(0,(double)$timeout),
             max(0,(int)$fail_number),
-            max(0,(int)$fail_expire)
+            max(0,(double)$fail_expire)
         );
     }
 
@@ -154,8 +154,8 @@ class Queue
         go(function (){
             do{
                 $result = $this->driver->popJob();
-                Log::debug('查询任务',[$result]);
                 $result && $this->idChannel->push(['type'=>'job','id'=>$result]);
+                Log::debug('查询任务',[$result]);
                 $this->sleep();
             }while(true);
         });
@@ -170,8 +170,8 @@ class Queue
         go(function (){
             do{
                 $result = $this->driver->popTimeoutJob();
-                Log::debug('查询超时任务',[$result]);
                 $result && $this->idChannel->push(['type'=>'timeoutJob','id'=>$result]);
+                Log::debug('查询超时任务',[$result]);
                 $this->sleep();
             }while(true);
         });
@@ -217,12 +217,12 @@ class Queue
      * 重新发布一遍执行失败的任务
      * @param int $id 任务id
      * @param string $error 任务出错信息
-     * @param int $delay 重新执行延时时间
+     * @param int $delay 重试延时时间(s 允许小数精度 到0.001)
      * @return bool
      * @throws \RedisException
      */
     public function retry(int $id, string $error,int $delay = 0){
-        return $this->driver->setErrorInfo($id,$error."\n") && $this->driver->retry($id,time()+$delay);
+        return $this->driver->setErrorInfo($id,$error."\n") && $this->driver->retry($id,$delay);
     }
 
     /**
@@ -296,7 +296,7 @@ class Queue
     /**
      * 设置执行中任务的执行超时时间
      * @param $id
-     * @param null|int $timeout
+     * @param null|int $timeout （s 支持小数 精度到0.001）
      */
     public function setWorkingTimeout($id,$timeout = null){
         return $this->driver->setWorkingTimeout($id,$timeout);
