@@ -13,7 +13,7 @@ return [
             'name' => 'test',//队列名称
             'worker_number' => 4,//当前队列工作进程数量
             'memory_limit' => 1024, //当前队列工作进程的最大使用内存，超出则重启。单位 MB
-            'sleep_seconds' => 0.5,//监视进程休眠时间（秒，允许小数最小到0.001）
+            'sleep_seconds' => 0.005,//监视进程休眠时间（秒，允许小数最小到0.001）
             'timeout'=>25,//超时时间（此配置值使用投递任务进程使用的配置，而不是队列执行进程）
             'timeout_handle'=>function(){
                 var_dump('超时了');

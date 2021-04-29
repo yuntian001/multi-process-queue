@@ -190,6 +190,7 @@ MPQueue\Queue\Queue::push 接收三个参数：
 
 - $delay 延时投递时间(s) 默认为0（立即投递）
 
+任务投递示例，请参考test和test/Job文件夹下的normal.php、failed.php、timeout.php、pressure.php
 ## 注意事项
 - worker:reload会让worker进程执行完当前任务后进程重启，worker:restart会暴力重启manage、master、worker进程，可能会造成任务执行一半被断掉。 
 - 因进程是在启动后直接加载到内存中的，更改代码后不会立即生效 需要执行worker:reload 或者 worker:start使其生效。
