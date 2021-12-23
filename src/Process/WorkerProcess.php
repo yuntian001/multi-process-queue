@@ -1,5 +1,4 @@
 <?php
-
 namespace MPQueue\Process;
 
 use Co\WaitGroup;
@@ -64,12 +63,26 @@ class WorkerProcess
         }
         //阻塞监听manage进程消息
         $this->listenManageMessage();
-        $this->getStatus();
-        Log::debug('子进程启动完成');
-        //必须添加阻塞程序，否则信号异步监听不生效(协程等待时间异步信号监听会被阻塞)
-        while (true) {
-            Coroutine::sleep(0.001);
+        $this->getStatus(2);
+        if(QueueConfig::model() == QueueConfig::MODEL_GRAB){
+            go(function (){
+               while (true){
+                   if($this->status == ProcessConfig::STATUS_BUSY){
+                       Coroutine::sleep(0.001);
+                       continue;
+                   }
+                   $this->consumeJob($this->queueDriver->pop()[0]);
+               }
+            });
+            Log::debug('子进程启动完成');
+        }else{
+            Log::debug('子进程启动完成');
+            //必须添加阻塞程序，否则信号异步监听不生效(协程等待时间异步信号监听会被阻塞)
+            while (true) {
+                Coroutine::sleep(0.001);
+            }
         }
+
 
 
     }
@@ -238,12 +251,23 @@ class WorkerProcess
     }
 
     /**
-     * 获取当前进程状态（发送给master和manage进程）
+     * 获取当前进程状态 发送给对应进程
+     * @param int $type 0所有 1 matser 2manage
      */
-    public function getStatus()
+    public function getStatus($type = 0)
     {
-        $this->sendToMaster('setWorkerStatus', ['status' => $this->status, 'startTime' => $this->startTime]);
-        $this->sendToManage('setProcessStatus', ['status' => $this->status, 'startTime' => $this->startTime]);
+        switch($type){
+            case 0:
+                $this->sendToMaster('setWorkerStatus', ['status' => $this->status, 'startTime' => $this->startTime]);
+                $this->sendToManage('setProcessStatus', ['status' => $this->status, 'startTime' => $this->startTime]);
+                break;
+            case 1:
+                $this->sendToMaster('setWorkerStatus', ['status' => $this->status, 'startTime' => $this->startTime]);
+                break;
+            case 2:
+                $this->sendToManage('setProcessStatus', ['status' => $this->status, 'startTime' => $this->startTime]);
+                break;
+        }
     }
 
     /**
@@ -256,33 +280,36 @@ class WorkerProcess
         if ($this->status == ProcessConfig::STATUS_BUSY) {
             return false;
         }
+        $this->status = ProcessConfig::STATUS_BUSY;
         Log::debug('开始执行任务', [$id]);
         $info = $this->queueDriver->consumeJob($id);
         if (!$info) {
             Log::debug('没有获取到对应详情', [$id]);
-            $this->getStatus();
-            return false;
-        }
-        $this->status = ProcessConfig::STATUS_BUSY;
-        $this->getStatus();
-        try {
-            $failNumber = $info['fail_number'];
-            $failExpire = $info['fail_expire'];
-            $timeout = $info['timeout'];
-            if ($timeout > 0) {
-                $this->registerTimeSig();
-                pcntl_alarm($timeout);
-            }
-        } catch (\Throwable $e) {
-            Log::error($e);
             $this->status = ProcessConfig::STATUS_IDLE;
             $this->getStatus();
             return false;
         }
+        $this->getStatus(2);
+        $failExpire = $info['fail_expire'];
+        $timeout = $info['timeout'];
         try {
+            if ($info['exec_number'] > $info['fail_number']) {
+                throw new \Exception('上一个进程异常挂掉');
+            }
+            if($info['type'] == 2){//超时任务
+                throw new \Exception('任务超时');
+            }
             $job = $info['job'];
-            if (is_string($job) && class_exists($job)) {
-                $job = new $job;
+            try {
+                if ($timeout > 0) {
+                    $this->registerTimeSig();
+                    pcntl_alarm($timeout);
+                }
+            } catch (\Throwable $e) {
+                Log::error($e);
+                $this->status = ProcessConfig::STATUS_IDLE;
+                $this->getStatus();
+                return false;
             }
             if ($job instanceof Job) {
                 $job->handle();
@@ -293,9 +320,19 @@ class WorkerProcess
             $this->queueDriver->remove($id);
         } catch (\Throwable $e) {
             $this->delTimeSig();
-            if ($this->queueDriver->setWorkingTimeout($id, -2)) {
+            $setRe = true;
+            if ($timeout > 0) { //重新注册时钟信号
+                $this->queueDriver->setWorkingTimeout($id, $timeout);
+                $this->registerTimeSig();
+                pcntl_alarm($timeout);
+            }
+            if($setRe){
                 Log::error($e);
                 $error = BasicsConfig::name() . ':' . getmypid() . ':' . $e->getCode() . ':' . $e->getMessage();
+                if ($info['type'] != 2 && $info['exec_number'] < $info['fail_number']) {
+                    $this->delTimeSig();
+                    return $this->queueDriver->retry($id, $error, $failExpire);
+                }
                 try {
                     $handle_result = false;
                     if ($job instanceof Job) {
@@ -308,11 +345,8 @@ class WorkerProcess
                     Log::error($exception);
                     $error .= "\nfail_handle:" . $exception->getCode() . ':' . $exception->getMessage();
                 }
-                if ($info['exec_number'] < $failNumber) {
-                    $this->queueDriver->retry($id, $error, $failExpire);
-                } else {
-                    $this->queueDriver->failed($id, $info, $error);
-                }
+                $this->delTimeSig();
+                $this->queueDriver->failed($id, $info, $error);
             }
         }
         $this->queueDriver->close();
@@ -324,45 +358,6 @@ class WorkerProcess
         $this->getStatus();
     }
 
-    /**
-     * 超时任务处理
-     * @param $id
-     * @throws \RedisException
-     */
-    public function consumeTimeoutJob($id)
-    {
-        //如果当前进程正在执行任务则拒绝执行新任务
-        if ($this->status == ProcessConfig::STATUS_BUSY) {
-            return false;
-        }
-        $this->status = ProcessConfig::STATUS_BUSY;
-        if ($info = $this->queueDriver->consumeTimeoutJob($id)) {
-            $error = '执行超时';
-            try {
-                $job = $info['job'];
-                if (is_string($job) && class_exists($job)) {
-                    $job = new $job;
-                }
-                $handle_result = false;
-                if ($job instanceof Job) {
-                    $handle_result = $job->timeout_handle($info);
-                }
-                if ($handle_result === false && QueueConfig::timeout_handle()) {
-                    call_user_func(QueueConfig::timeout_handle(), $info);
-                }
-            } catch (\Throwable $exception) {
-                Log::error($exception);
-                $error .= "\nfail_handle:" . $exception->getCode() . ':' . $exception->getMessage();
-            }
-            $this->queueDriver->failed($id, $info, $error);
-        }
-        $this->status = ProcessConfig::STATUS_IDLE;
-        if(QueueConfig::queue()->memory_limit() && memory_get_usage() > (QueueConfig::queue()->memory_limit()*1024)){
-            Log::error('内存占用过多：'.memory_get_usage());
-            $this->process->exit();
-        }
-        $this->getStatus();
-    }
 
     /**
      * 设置当前时钟信号

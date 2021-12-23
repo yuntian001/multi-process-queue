@@ -25,7 +25,6 @@ class ManageProcess
     public function __construct()
     {
         swoole_set_process_name('mpq:manage');
-
     }
 
     /**

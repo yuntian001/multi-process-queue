@@ -9,13 +9,16 @@ $config = [
         'name' => 'mp-queue-1',//多个服务器同时启动时需要分别设置名字
         'driver' => new \MPQueue\Queue\Driver\Redis('127.0.0.1'),
     ],
+    'log'=>[
+      'level'=>\Monolog\Logger::DEBUG
+    ],
     'queue' => [
         [
             'name' => 'test',//队列名称
-            'timeout_handle' => function () {
-                var_dump('超时了');
-            },//超时后触发函数
-            'fail_handle' => function () {
+            'fail_handle' => function ($info,$e) {
+                var_dump(getmypid());
+                var_dump($info);
+                var_dump($e);
                 var_dump('失败了');
             },//失败回调函数
         ],

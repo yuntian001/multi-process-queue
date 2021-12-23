@@ -5,11 +5,7 @@ use MPQueue\Job;
 
 /**
  * Interface DriverInterface
- * statics zet 数据回执
- * task hset 任务详细信息
- * delay zset id timestamp 延迟队列
- * reserved zset id timeout 保留队列（执行中）
- * failed hset 失败队列
+ * 驱动抽象接口类
  */
 interface DriverInterface
 {
@@ -17,7 +13,7 @@ interface DriverInterface
      * 设置当前操作队列
      * @param $queue
      */
-    public function setQueue($queue):DriverInterface;
+    public function setQueue(String $queue):DriverInterface;
 
     /**
      * 获取连接
@@ -45,8 +41,10 @@ interface DriverInterface
 
     /**
      * 从等待队列中弹出一个可执行任务
+     * @param $number
+     * @return array
      */
-    public function popJob();
+    public function popJob($number);
 
     /**
      * 移动过期任务到等待队列
@@ -69,12 +67,11 @@ interface DriverInterface
      */
     public function moveExpiredRetry($number = 50);
 
-    /**
-     * 获取执行超时id
-     * @return mixed
-     */
-    public function popTimeoutJob();
 
+    /**
+     * 移动执行超时任务到等待队列
+     */
+    public function moveTimeoutJob(int $number = 50);
 
     /**
      * 开始执行任务，在等待队列移除任务并设置执行信息
@@ -83,12 +80,6 @@ interface DriverInterface
      */
     public function reReserve($id);
 
-    /**
-     * 开始消费执行超时任务返回对应任务详情信息
-     * @param $id
-     * @return mixed
-     */
-    public function consumeTimeoutWorking($id);
 
     /**
      * 删除执行成功的任务

@@ -42,9 +42,9 @@ class Config
                     'timeout' => 120,//超时时间(s)以投递任务方为准
                     'fail_number' => 3,//最大失败次数以投递任务方为准
                     'fail_expire' => 3,//失败延时投递时间(s)投递任务方为准
-                    'timeout_handle' => '', //任务超时触发函数
                     'fail_handle' => '', //任务失败触发函数
                     'worker_start_handle' => '',//worker进程启动加载函数
+                    'model'=> QueueConfig::MODEl_DISTRIBUTE,//MODEl_DISTRIBUTE分发模式 QUEUE_GRAB 抢占模式
                 ]
             ],
         ],

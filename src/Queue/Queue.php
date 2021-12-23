@@ -10,7 +10,11 @@ use MPQueue\Job;
 use MPQueue\Log\Log;
 use MPQueue\Queue\Driver\DriverInterface;
 use MPQueue\Serialize\JobSerialize;
+use MPQueue\Serialize\JsonSerialize;
+use MPQueue\Serialize\PhpSerialize;
 use Swoole\Coroutine\Channel;
+defined('MPQ_POP_WEIGHT') || define('MPQ_POP_WEIGHT',100);
+defined('MPQ_TIMEOUT_WEIGHT') || define('MPQ_TIMEOUT_WEIGHT',0);
 
 /**
  * 队列类
@@ -22,8 +26,11 @@ use Swoole\Coroutine\Channel;
 class Queue
 {
     private $driver = null;
-    private $idChannel = null;
     const WORKER_POP_TIMEOUT = 0.5; //弹出任务后，分发worker开始执行之间时间间隔（单位秒，超时后会被重新分发给其他worker）
+    private $timeout_number = 0;
+    private $pop_number = 0;
+    public $yieldJobs=[];
+    public $workerNumber = 0;
 
     /**
      * Queue constructor.
@@ -60,7 +67,7 @@ class Queue
             $timeout = is_null($callJob->getTimeout())?QueueConfig::queue($queue)->timeout():$callJob->getTimeout();
             $fail_number = is_null($callJob->getFailNumber())?QueueConfig::queue($queue)->fail_number():$callJob->getFailNumber();
             $fail_expire = is_null($callJob->getFailExpire())?QueueConfig::queue($queue)->fail_expire():$callJob->getFailExpire();
-        }elseif(is_callable($job)) {
+        }elseif($job instanceof \Closure) {
             $timeout = QueueConfig::queue($queue)->timeout();
             $fail_number = QueueConfig::queue($queue)->fail_number();
             $fail_expire = QueueConfig::queue($queue)->fail_expire();
@@ -82,6 +89,7 @@ class Queue
         $this->moveExpired();
         $this->moveExpiredReserve();
         $this->moveExpiredRetry();
+        $this->moveTimeoutJob();
     }
 
     /**
@@ -134,55 +142,37 @@ class Queue
     }
 
     /**
-     * 定时循环提取可执行id
-     * @throws \RedisException
+     * 移动超时任务到等待队列
      */
-    public function popInterval(){
-        $this->idChannel = new Channel(1);
-        $this->popJob();
-        $this->popTimeoutJob();
-    }
-
-
-
-    /**
-     * 获取队列id放入idChannel中
-     * @return mixed|null
-     * @throws \RedisException
-     */
-    private function popJob(){
-        go(function (){
-            do{
-                $result = $this->driver->popJob();
-                $result && $this->idChannel->push(['type'=>'job','id'=>$result]);
-                Log::debug('查询任务',[$result]);
+    private function moveTimeoutJob(){
+        go(function () {
+            while (true) {
+                $ids = $this->driver->moveTimeoutJob(50);
+                Log::debug('移动超时任务到等待队列',(array)$ids);
+                if (count($ids) == 50) {
+                    continue;
+                }
                 $this->sleep();
-            }while(true);
+            }
         });
     }
 
-    /**
-     * 获取执行超时任务id放入idChannel中
-     * @return mixed
-     * @throws \RedisException
-     */
-    private function popTimeoutJob(){
-        go(function (){
-            do{
-                $result = $this->driver->popTimeoutJob();
-                $result && $this->idChannel->push(['type'=>'timeoutJob','id'=>$result]);
-                Log::debug('查询超时任务',[$result]);
-                $this->sleep();
-            }while(true);
-        });
-    }
 
     /**
      * 阻塞获取可执行id(需要放在协程中执行)
      * @return array ['type'=>'','id'=>'']
      */
-    public function pop(){
-        return $this->idChannel->pop();
+    public function pop(int $pop_number = 1):array{
+        do{
+            $result = $this->driver->popJob($pop_number);
+            if($result){
+                Log::debug('查询任务',$result);
+                return $result;
+            }else{
+                Log::debug('查询任务',$result);
+                $this->sleep();
+            }
+        }while(true);
     }
 
     /**
@@ -191,8 +181,8 @@ class Queue
      * @return mixed
      * @throws \RedisException
      */
-    public function consumeJob($id){
-        $info =  $this->driver->reReserve($id);
+    public function consumeJob($id ,bool $isTimeOut = false){
+        $info =  $this->driver->reReserve($id,$isTimeOut);
         if($info){
            $info['job'] = JobSerialize::unSerialize($info['job']);
         }
@@ -244,7 +234,8 @@ class Queue
      */
     public function failed(int $id, array $info,string $error){
         $info['error_info'] .= $error."\n";
-        return $this->driver->failed($id,JobSerialize::serialize($info));
+        $info['job'] = JobSerialize::serialize($info['job']);
+        return $this->driver->failed($id,JsonSerialize::serialize($info));
     }
 
 
@@ -288,7 +279,8 @@ class Queue
     static public function failedList($queue){
         $result = BasicsConfig::driver()->setQueue($queue)->failedList();
         foreach ($result as &$value){
-            $value = JobSerialize::unSerialize($value);
+            $value = JsonSerialize::unSerialize($value);
+            $value['job'] = JobSerialize::unSerialize($value['job']);
         }
         return $result;
     }
@@ -305,9 +297,26 @@ class Queue
     /**
      * 协程sleep会让出协程
      */
-    private function sleep(){
+    public function sleep(){
         \Swoole\Coroutine\System::sleep(QueueConfig::queue()->sleep_seconds());
     }
 
+    /**
+     * 设置可使用worker进程数量
+     * @param $number
+     */
+    public function setWorkerNumber($number){
+        if($number < 0){
+            $number = $this->workerNumber = max($this->workerNumber + $number,0);
+        }
+        $this->workerNumber = $number;
+        if(!$number){
+            $this->pop_number = 0;
+            $this->timeout_number = 0;
+        }else{
+            $this->pop_number = max(floor($number / (MPQ_POP_WEIGHT+MPQ_TIMEOUT_WEIGHT)*MPQ_POP_WEIGHT),1);
+            $this->timeout_number = max($number- $this->pop_number,1);
+        }
+    }
 
 }

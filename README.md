@@ -14,13 +14,14 @@
 ### 特性
  - 最低毫秒级任务延时
  - 自定义重试次数和错误回调
- - 自定义超时时间和超时回调
+ - 自定义超时时间
  - 自定义启动预执行函数，方便初始化其他框架与其他项目配合使用
  - master协程监听队列降低延时
  - 多worker进程消费任务  
- - worker进程支持一键化协程协程
+ - worker进程支持一键化协程
  - 支持后台守护运行,无需其余进程管理工具
- - 支持分布式部署
+ - 支持多服务器分布式部署
+ - 高可用，根据超时时间判断，确保进程挂掉后,回调函数执行成功。
 
 ### 进程结构图
 
@@ -45,17 +46,22 @@
 |queue[0].memory_limit | int | 否 | 128 | 工作进程最大使用内存数(单位mb)(0无限制)|
 |queue[0].sleep_seconds | floot | 否 | 1 | 监视进程休眠时间（秒，最小到0.001） |
 |queue[0].timeout | int | 否 | 120 | 超时时间(s)以投递任务方为准 |
-|queue[0].fail_number | int | 否 | 3 | 最大失败次数以投递任务方为准 |
-|queue[0].fail_expire | int | 否 | 3 | 失败延时投递时间(s)以投递任务方为准 |
-|queue[0].timeout_handle | callable | 否 | 空 | 任务超时执行函数 | 
-|queue[0].fail_handle | callable | 否 | 空 | 任务失败执行函数 |
+|queue[0].fail_number | int | 否 | 3 | 最大失败次数以投递任务方为准,达到最大次数前失败后会重新投递 |
+|queue[0].fail_expire | int | 否 | 3 | 失败延时投递时间(s 支持小数精度到0.001)以投递任务方为准 |
+|queue[0].fail_handle | callable | 否 | 空 | 任务失败执行函数(当任务超时或者达到最大投递次数后会执行) |
 |queue[0].worker_start_handle | callable | 否 | 空 | worker进程启动加载函数（当前队列有效） |
+|queue[0].model | int | 否 | \QueueConfig::MODEl_DISTRIBUTE |队列运行模式（QueueConfig::MODEl_DISTRIBUTE 分发模式 QueueConfig::MODEL_GRAB 抢占模式）
 
-timeout_handle 会传入一个参数 $info 任务详细信息
+fail_handle 会传入两个参数 $jobInfo 任务详细信息、$e出错的异常类
+fail_handle的执行时间也受timeout的控制
+#### 注意：任务超时后会直接记录为失败，不会根据fail_number进行失败重试,可以在fail_handle中根据$jobInfo['type']判断是否是超时任务。
 
-fail_handle 会传入两个参数 $info 任务详细信息、$e出错的异常类
-
-#### 注意：任务超时后会触发timeout_handle会直接记录为失败，不会根据fail_number进行失败重试，也不会触发fail_handle。
+##2.0改动
+1. 取消超时回调，超时后记录为失败，触发失败回调。
+2. 由原来的每次失败都触发失败回调改为，超时或达到失败重试次数后才触发。
+3. 增加抢占模式:此模式下worker进程会主动抢任务会增加数据库查询和连接数量（1.0版本的模式为分发模式）
+4. 增加高可用性，超时时间适用于失败回调，如果进程在失败回调执行期间挂掉，其余进程会在超时时间到达后再次执行失败回调。
+5. 优化分发模式性能,按当前空闲进程数一次获取多个任务进行分发，qps大大提高。
 
 ### 配置示例
 ```

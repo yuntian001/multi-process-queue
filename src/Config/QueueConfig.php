@@ -13,14 +13,17 @@ use MPQueue\Library\Traits\Config;
  * @method static timeout() 获取当前队列的任务超时时间 秒
  * @method static fail_expire() 获取当前队列的配置对象的间隔等待时间 秒
  * @method static fail_number() 获取当前队列的允许最大失败次数
- * @method static timeout_handle() 获取超时后需要执行的callable
  * @method static fail_handle() 获取失败后需要执行的fail_handle
  * @method static worker_start_handle() 当前队列的worker进程启动后执行函数
+ * @method static model() 队列运行模式分发/抢占
  * @package MPQueue\Config
  */
 class QueueConfig implements ConfigInterface
 {
     use Config;
+
+    const MODEl_DISTRIBUTE = 1;//分发模式
+    const MODEL_GRAB = 2;//抢占模式
 
     protected static $queues = [];
     protected $name;
@@ -30,11 +33,11 @@ class QueueConfig implements ConfigInterface
     protected $timeout;
     protected $fail_number;
     protected $fail_expire;
-    protected $timeout_handle;
     protected $fail_handle;
     protected $worker_start_handle;
+    protected $model;
 
-    public function __construct($name, $worker_number, $memory_limit, $sleep_seconds,$timeout,$fail_number,$fail_expire,$timeout_handle,$fail_handle,$worker_start_handle)
+    public function __construct($name, $worker_number, $memory_limit, $sleep_seconds,$timeout,$fail_number,$fail_expire,$fail_handle,$worker_start_handle,$model)
     {
         $this->name = $name;
         $this->worker_number = $worker_number;
@@ -43,10 +46,9 @@ class QueueConfig implements ConfigInterface
         $this->timeout = $timeout;
         $this->fail_number = $fail_number;
         $this->fail_expire = $fail_expire;
-        $this->timeout_handle = $timeout_handle;
         $this->fail_handle = $fail_handle;
         $this->worker_start_handle = $worker_start_handle;
-
+        $this->model = $model;
     }
 
     public static function set($queues)
@@ -61,9 +63,9 @@ class QueueConfig implements ConfigInterface
                 $value['timeout'],
                 $value['fail_number'],
                 $value['fail_expire'],
-                $value['timeout_handle'],
                 $value['fail_handle'],
-                $value['worker_start_handle']
+                $value['worker_start_handle'],
+                $value['model']
             );
         }
     }

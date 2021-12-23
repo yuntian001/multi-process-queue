@@ -41,6 +41,6 @@ class BasicsConfig implements ConfigInterface
      */
     public static function pid_file(): string
     {
-        return self::$pid_path . '/mpQueue.pid';
+        return self::$pid_path . '/mpQueue-'.BasicsConfig::name().'.pid';
     }
 }

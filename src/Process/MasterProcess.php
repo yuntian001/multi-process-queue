@@ -41,7 +41,6 @@ class MasterProcess
         $this->queue = $queue;
         $this->manageClient = new MasterProcessClient($process->exportSocket(), $this);
         $this->queueDriver = new Queue(BasicsConfig::driver(),$queue);
-        $this->status = ProcessConfig::STATUS_IDLE;
         $this->workerChannel = new Channel(QueueConfig::worker_number());
     }
 
@@ -67,11 +66,12 @@ class MasterProcess
         $this->setOver();
         $this->getStatus();
         Log::debug("子进程启动成功");
-        //必须添加阻塞程序，否则异步信号监听不生效(协程等待时间异步信号监听会被阻塞)
-        while (true) {
-            Coroutine::sleep(0.001);
-        }
-
+        //必须添加阻塞程序，否则异步信号监听不生效(协程socket连接等待时间异步信号监听会被阻塞)
+        go(function (){
+            while (true) {
+                sleep(0);
+            }
+        });
     }
 
 
@@ -125,24 +125,30 @@ class MasterProcess
     {
         //队列定时执行任务
         $this->queueDriver->timerInterval();
-        $this->queueDriver->popInterval();
-        //处理队列任务
-        go(function () {
-            while (true) {
-                $pid = $this->workerChannel->pop();
-                $idInfo = $this->queueDriver->pop();
-                $this->status = ProcessConfig::STATUS_BUSY;
-                if (!empty($this->workProcess[$pid])) {
-                    Log::debug("获取到队列任务", $idInfo);
-                    $this->status = ProcessConfig::STATUS_BUSY;
-                    //如果进程存在则进行分发
-                    $this->setWorkerStatus(ProcessConfig::STATUS_BUSY, $pid);
-                    $this->sendToWorker($pid, 'consume' . $idInfo['type'], ['id' => $idInfo['id']]);
-                    Log::debug('将队列任务分发给woker进程:' . $pid, $idInfo);
+        if(QueueConfig::model() == QueueConfig::MODEl_DISTRIBUTE) {
+            //分发队列任务
+            go(function () {
+                while (true) {
+                    $pid = $this->workerChannel->pop();
+                    $ids = $this->queueDriver->pop($this->workerChannel->length() + 1);
+                    Log::debug("获取到队列任务", $ids);
+                    $this->queueDriver->setWorkerNumber(0 - count($ids));
+                    foreach ($ids as $id) {
+                        do{
+                            if (!empty($this->workProcess[$pid])) {
+                                //如果进程存在则进行分发
+                                $this->setWorkerStatus(ProcessConfig::STATUS_BUSY, $pid);
+                                $this->sendToWorker($pid, 'consumeJob', ['id' => $id]);
+                                Log::debug('将队列任务分发给woker进程:' . $pid, [$id]);
+                                $pid = 0;
+                                break;
+                            }
+                        }while($pid = $this->workerChannel->pop());
+                    }
                 }
-                $this->status = ProcessConfig::STATUS_IDLE;
-            }
-        });
+            });
+        }
+        $this->setStatus(ProcessConfig::STATUS_BUSY);
     }
 
 
@@ -159,6 +165,13 @@ class MasterProcess
 
     public function getStatus(){
         $this->sendToManage('setProcessStatus', ['status' => $this->status,'startTime'=>$this->startTime]);
+    }
+
+    public function setStatus($status){
+        if($status != $this->status){
+            $this->status = $status;
+            $this->getStatus();
+        }
     }
 
     /**
@@ -243,6 +256,13 @@ class MasterProcess
             $this->workProcess[$pid]['status'] = $status;
             switch ($status) {
                 case ProcessConfig::STATUS_IDLE:
+                    $count = 1;
+                    foreach ($this->workProcess as $value){
+                        if($value['status'] === ProcessConfig::STATUS_IDLE){
+                            $count++;
+                        }
+                    }
+                    $this->queueDriver->setWorkerNumber($count);
                     $this->workerChannel->push($pid);
                     break;
             }

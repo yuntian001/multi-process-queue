@@ -62,21 +62,14 @@ abstract class Job
      */
     abstract public function handle();
 
-    /**
-     * 任务超时后被调用(先于队列的handle调用 除非返回false 否则不再调用队列的fail_handle)
-     * @param array $jobInfo 任务详细信息数组
-     */
-    public function timeout_handle(array $jobInfo){
-        return false;
-    }
 
     /**
      * 任务失败后被调用
-     * @param array $jobInfo 任务详细信息数组
+     * @param array $jobInfo 任务详细信息数组 $jobInfo['type']标识当前任务类型 1正常任务 2超时的任务
      * @param \Throwable $e 错误异常对象
      * @return mixed (先于队列的handle调用 除非返回false 否则不再调用队列的fail_handle)
      */
-    public function fail_handle(array $jobInfo,\Throwable $e)
+    public function fail_handle(array &$jobInfo,\Throwable $e)
     {
         return false;
     }

@@ -52,14 +52,14 @@ class Log
 
     public static function __callStatic($name, $arguments)
     {
-        $arguments[0] = '['.ProcessConfig::queue().':'.ProcessConfig::getType().':'.getmypid().']'.$arguments[0];
+        $arguments[0] = '['.ProcessConfig::queue().':'.ProcessConfig::getType().':'.getmypid().']'.":'".$arguments[0];
         if(call_user_func_array([self::getDriver(),$name],$arguments) && !ProcessConfig::daemon()){
             //记录成功并且非后台运行则打印对应信息到屏幕
             OutPut::{self::$levelOut[$name]}(
                 (new \DateTimeImmutable())->format('Y-m-d\TH:i:s.v')
                 ."【{$name}】".$arguments[0]
                 .(!empty($arguments[1])?JsonSerialize::serialize($arguments[1]):'')
-                ."\n");
+                ."'\n");
         }
     }
 

@@ -16,11 +16,7 @@ class JobSerialize implements SerializeInterface
      * @return string
      */
     public static function serialize($data): string{
-        SerializableClosure::enterContext();
-        SerializableClosure::wrapClosures($data);
-        $data = \serialize($data);
-        SerializableClosure::exitContext();
-        return $data;
+        return \serialize(is_callable($data)?(new SerializableClosure($data)):$data);
     }
 
     /**
@@ -28,13 +24,11 @@ class JobSerialize implements SerializeInterface
      * @param string $string
      * @return mixed
      */
-    public static function unSerialize(string $string, array $options = null){
-        SerializableClosure::enterContext();
-        $data = ($options === null || \PHP_MAJOR_VERSION < 7)
-            ? \unserialize($string)
-            : \unserialize($string, $options);
-        SerializableClosure::unwrapClosures($data);
-        SerializableClosure::exitContext();
-        return $data;
+    public static function unSerialize(string $string){
+        $data = \unserialize($string);
+        if(is_string($data)){
+            return new $data();
+        }
+        return $data->getClosure();
     }
 }

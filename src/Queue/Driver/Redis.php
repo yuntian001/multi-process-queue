@@ -67,7 +67,7 @@ class Redis implements DriverInterface
      * @param $queue
      * @return Redis
      */
-    public function setQueue($queue): DriverInterface
+    public function setQueue( String $queue): DriverInterface
     {
         $this->queue = $queue;
         return $this;
@@ -99,6 +99,7 @@ class Redis implements DriverInterface
         $connect = new \Redis();
         $connect->connect($this->config['host'], $this->config['port']);
         $this->config['password'] && $connect->auth($this->config['password']);
+        $this->config['database'] && $connect->select($this->config['database']);
         return $connect;
     }
 
@@ -129,7 +130,7 @@ class Redis implements DriverInterface
     {
         $script = <<<SCRIPT
 local id = redis.call('incr', KEYS[1])
-redis.call('hMset',KEYS[2]..id,'job',ARGV[1],'create_time',ARGV[2],'exec_number',0,'worker_id','','start_time',0,'timeout',ARGV[3],'fail_number',ARGV[4],'fail_expire',ARGV[5],'error_info','')
+redis.call('hMset',KEYS[2]..id,'job',ARGV[1],'create_time',ARGV[2],'exec_number',0,'worker_id','','start_time',0,'timeout',ARGV[3],'fail_number',ARGV[4],'fail_expire',ARGV[5],'error_info','','type',1)
 if (ARGV[6] > ARGV[2]) then
 redis.call('zAdd',KEYS[3],ARGV[6],id)
 else
@@ -156,28 +157,33 @@ SCRIPT;
 
     /**
      * 从等待队列中弹出一个可执行任务
+     * @return array
      * @throws \RedisException
      */
-    public function popJob()
+    public function popJob($number)
     {
         $script = <<<SCRIPT
 -- 从等待队列 WAITING头部 弹出一个任务
-local id = redis.call('lpop', KEYS[1])
-if (id) then
-    -- 添加到保留集合RESERVE中并设置超时重新分发时间戳
-    redis.call('zAdd', KEYS[2], ARGV[1], id)
-    -- 任务详情INFO设置任务状态为被取出并设置取出时间
-    redis.call('hSet',KEYS[3]..id,'pop_time',ARGV[2])
+local ids = redis.call('lRange', KEYS[1],0,ARGV[3])
+if (#ids > 0) then
+    redis.call('lTrim', KEYS[1],ARGV[3]+1,-1)
+    for i=1,#ids,1 do
+        -- 添加到保留集合RESERVE中并设置超时重新分发时间戳
+        redis.call('zAdd', KEYS[2], ARGV[1], ids[i])
+        -- 任务详情INFO设置任务状态为被取出并设置取出时间
+        redis.call('hSet',KEYS[3]..ids[i],'pop_time',ARGV[2])
+    end
 end  
-return id
+return ids
 SCRIPT;
         return $this->eval($script, [
             $this->getKey(self::WAITING),
             $this->getKey(self::RESERVE),
             $this->getKey(self::INFO),
             microtime(true) + Queue::WORKER_POP_TIMEOUT,
-            microtime(true)
-        ], 3);
+            microtime(true),
+            $number-1,
+        ], 3)?:[];
     }
 
     /**
@@ -234,7 +240,7 @@ SCRIPT;
     }
 
     /**
-     * 移动超时重试任务到等待队列
+     * 移动到时间的重试任务到等待队列
      * @param int $number
      * @return mixed
      * @throws \RedisException
@@ -260,31 +266,34 @@ SCRIPT;
         ], 2);
     }
 
-
     /**
-     * 获取执行超时id
-     * @return mixed
-     * @throws \RedisException
+     * 移动执行超时任务到等待队列
      */
-    public function popTimeoutJob()
-    {
+    public function moveTimeoutJob(int $number = 50){
         $script = <<<SCRIPT
--- 从执行中集合WORKING中弹出number个任务
-local ids = redis.call('zRangeByScore', KEYS[1], 1 , ARGV[1], 'LIMIT' , 0 ,1)
+--- 从执行中集合WORKING中弹出number个任务
+local ids = redis.call('zRangeByScore', KEYS[1], 1 , ARGV[1], 'LIMIT' , 0 ,ARGV[2])
 if (#ids ~= 0) then
-    -- 设置新的超时分配时间
-    redis.call('zAdd',KEYS[1], ARGV[2], ids[1])
-    return ids[1]
+    -- 将任务id推入list WAITING尾部
+    redis.call('rPush',KEYS[2], unpack(ids))
+    -- 从执行集合WORKING中移除对应id
+    redis.call('zRem',KEYS[1], unpack(ids))
+    -- 设置info
+    for i=1,#ids,1 do
+        -- 标记类型为超时
+        redis.call('hSet',KEYS[3]..ids[i], 'type', 2)
+    end
 end  
-return false
+return ids
 SCRIPT;
         return $this->eval($script, [
             $this->getKey(self::WORKING),
+            $this->getKey(self::WAITING),
+            $this->getKey(self::INFO),
             microtime(true),
-            microtime(true) + Queue::WORKER_POP_TIMEOUT
-        ], 1);
+            $number
+        ], 3)?:[];
     }
-
 
     /**
      * 开始执行任务，在等待队列移除任务并设置执行信息
@@ -294,7 +303,7 @@ SCRIPT;
      */
     public function reReserve($id)
     {
-        $script = <<<SCRIPT
+            $script = <<<SCRIPT
 --从延时集合RESERVE中移除任务
 local number = redis.call('zRem', KEYS[1], ARGV[1])
 if (number > 0) then
@@ -305,15 +314,15 @@ if (number > 0) then
     for i=1,number,2 do
 	    info[info_array[i]] = info_array[i+1]
     end
-    info['exec_number'] = info['exec_number']+1
-    -- 设置当前执行的程序、开始执行时间及状态为执行中
-    redis.call('hMSet',KEYS[3]..ARGV[1], 'worker_id', ARGV[2], 'start_time', ARGV[3],'exec_number',info['exec_number'])
     -- 将任务添加到执行集合 WORKING重试时间戳
     if (tonumber(info['timeout']) > 0) then
         redis.call('zAdd',KEYS[2],ARGV[3]+info['timeout'],ARGV[1])
     else
         redis.call('zAdd',KEYS[2],0,ARGV[1])
     end
+    -- 设置当前执行的程序、开始执行时间及状态为执行中
+    info['exec_number'] = info['exec_number']+1
+    redis.call('hMSet',KEYS[3]..ARGV[1], 'worker_id', ARGV[2], 'start_time', ARGV[3],'exec_number',info['exec_number'])
     return cjson.encode(info)
 end  
 return false
@@ -355,44 +364,6 @@ SCRIPT;
             $id,
         ], 3);
     }
-
-
-    /**
-     * 开始消费执行超时任务返回对应任务详情信息
-     * @param $id
-     * @return mixed
-     * @throws \RedisException
-     */
-    public function consumeTimeoutWorking($id)
-    {
-        $script = <<<SCRIPT
---从执行集合WORKING中获取任务
-local score = redis.call('zScore', KEYS[1], ARGV[1])
-if (score ~= -1) then
-    --设置超时时间为-1 表示已被worker进程接收去执行timeout
-    redis.call('zAdd', KEYS[1], -1, ARGV[1])
-    -- 获取当前任务的详情
-    local info_array = redis.call('HGetAll',KEYS[2]..ARGV[1])
-    if (info_array) then
-        local number = #info_array
-        local info = {}
-        for i=1,number,2 do
-            info[info_array[i]] = info_array[i+1]
-        end
-        return cjson.encode(info)
-    end
-end  
-return false
-SCRIPT;
-        $info = $this->eval($script, [
-            $this->getKey(self::WORKING),
-            $this->getKey(self::INFO),
-            $id,
-        ], 2);
-        $info && $info = json_decode($info, true);
-        return $info;
-    }
-
 
     /**
      * 在详情中追加错误信息
@@ -473,7 +444,7 @@ SCRIPT;
             $this->getKey(self::WORKING),
             $id,
             $info
-        ], 3,);
+        ], 3);
     }
 
     /**
