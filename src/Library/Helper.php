@@ -54,8 +54,7 @@ class Helper
         $dayText = $day ? $day . '天' : '';
         $hourText = $hour ? $hour . '小时' : '';
         $minuteText = $minute ? $minute . '分钟' : '';
-        $date = $dayText . $hourText . $minuteText . $second . '秒';
-        return $date;
+        return $dayText . $hourText . $minuteText . $second . '秒';
     }
 
 }

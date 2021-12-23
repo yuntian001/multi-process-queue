@@ -1,7 +1,7 @@
 # multi-process-queue
 
 基于swoole的多进程队列系统，manage进程管理子进程，master进程监听队列分发任务，worker进程执行任务，
-多进程、低延时(最低毫秒级)、低资源占用。可与 laravel thinkphp 等框架配合使用
+多进程、低延时(最低毫秒级)、低资源占用、高可用、可多服务器分布式部署。可与 laravel thinkphp 等框架配合使用。
 
 版本要求：
 

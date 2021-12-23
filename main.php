@@ -10,7 +10,7 @@ $config = [
         'driver' => new \MPQueue\Queue\Driver\Redis('127.0.0.1'),
     ],
     'log'=>[
-      'level'=>\Monolog\Logger::DEBUG
+//      'level'=>\Monolog\Logger::DEBUG
     ],
     'queue' => [
         [
