@@ -9,7 +9,7 @@
  - swoole >= 4.4
 
 当前支持的驱动 
- - redis （redis版本需大于3.0.2）
+ - redis （redis版本需大于3.0.2,redis扩展版本建议>=4.0.0）
 
 ### 特性
  - 最低毫秒级任务延时
@@ -32,13 +32,13 @@
 | 配置项 | 类型 | 是否必填 | 默认值 | 说明 |
 | --- | --- | --- | --- | --- |
 | basics | array | 是 | 无 | 基础配置项 |
-| basics.name | string | 是 | 无 | 当前队列服务名称，多个服务同时启动时需要分别设置名字 |
+| basics.name | string | 是 | 无 | 当前队列服务名称,多个服务同时启动时需要分别设置名字(名字自定义确保队列服务名字不重复即可) |
 | basics.pid_path | string | 否 | /tmp | 主进程pid文件存放路径 |
 | basics.driver | string | 是 | 无 | 队列驱动必须是MPQueue\Queue\Driver\DriverInterface的实现类 |
 | worker_start_handle | callable | 否 | 空字符串 |worker进程启动后会调用(当前服务所有队列有效) |
 | log | array | 是 | 无 | 日志配置 | 
 | log.path | string | 否 | /tmp | 日志存放路径 | 
-| log.level | int | 否 | Monolog\Logger::INFO |Monolog\Logger::DEBUG/Monolog\Logger::INFO |
+| log.level | int | 否 | Monolog\Logger::INFO |日志记录级别 Monolog\Logger::DEBUG/Monolog\Logger::INFO |
 | log.dirver | string/class | 否 | RotatingFileLogDriver | 日志驱动，必须是MPQueue\Log\Driver\LogDriverInterface的实现 |
 | queue | 二维数组 | 是 | 无 | 队列配置 |
 |queue[0].name | string | 是 | 无 |队列名称 | 
@@ -62,6 +62,8 @@ fail_handle的执行时间也受timeout的控制
 3. 增加抢占模式:此模式下worker进程会主动抢任务会增加数据库查询和连接数量（1.0版本的模式为分发模式）
 4. 增加高可用性，超时时间适用于失败回调，如果进程在失败回调执行期间挂掉，其余进程会在超时时间到达后再次执行失败回调。
 5. 优化分发模式性能,按当前空闲进程数一次获取多个任务进行分发，qps大大提高。
+### 下个版本规划
+  - redis集群(Redis Cluster)支持
 
 ### 配置示例
 ```

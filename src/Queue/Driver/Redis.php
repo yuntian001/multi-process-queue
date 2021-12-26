@@ -5,6 +5,7 @@ namespace MPQueue\Queue\Driver;
 
 
 use MPQueue\Config\BasicsConfig;
+use MPQueue\Log\Log;
 use MPQueue\Queue\Queue;
 use Swoole\Coroutine;
 
@@ -77,15 +78,29 @@ class Redis implements DriverInterface
      * 获取redis连接
      * @return \Redis
      */
-    public function getConnect()
+    public function getConnect($isPing = false)
     {
         //在协程环境中，则一个协程一个连接防止共用连接数据错乱
         if (class_exists('Swoole\Coroutine') && Coroutine::getCid() > 0) {
-            return isset(Coroutine::getContext()[\Redis::class])
-                ? Coroutine::getContext()[\Redis::class] : (Coroutine::getContext()[\Redis::class] = $this->connection());
+            if(isset(Coroutine::getContext()[\Redis::class])){
+                if($isPing){
+                    while (!$this->ping(Coroutine::getContext()[\Redis::class])){
+                        Coroutine::getContext()[\Redis::class] = $this->connection(true);
+                    }
+                }
+                return Coroutine::getContext()[\Redis::class];
+            }else{
+                 return Coroutine::getContext()[\Redis::class] = $this->connection();
+            }
         }
         if (!$this->connect) {
             $this->connect = $this->connection();
+        }else{
+            if($isPing) {
+                while (!$this->ping($this->connect)){
+                    $this->connect = $this->connection(true);
+                }
+            }
         }
         return $this->connect;
     }
@@ -94,13 +109,34 @@ class Redis implements DriverInterface
      * 连接到redis
      * @return \Redis
      */
-    private function connection()
+    private function connection(bool $isReconnect = false)
     {
         $connect = new \Redis();
-        $connect->connect($this->config['host'], $this->config['port']);
-        $this->config['password'] && $connect->auth($this->config['password']);
-        $this->config['database'] && $connect->select($this->config['database']);
+        try{
+            $connect->connect($this->config['host'], $this->config['port']);
+            $this->config['password'] && $connect->auth($this->config['password']);
+            $this->config['database'] && $connect->select($this->config['database']);
+        }catch (\RedisException $e){
+            Log::warning("redis连接出错2s后重试");
+            sleep(2);
+            return $this->connection(true);
+        }
+        $isReconnect  && Log::info("redis重连成功");
         return $connect;
+    }
+
+    /**
+     * @param $redis
+     * @return bool
+     */
+    private function ping($redis){
+        try{
+            if($redis->ping()){
+                return true;
+            }
+        }catch (\RedisException $e){
+        }
+        return false;
     }
 
     /**
@@ -112,7 +148,7 @@ class Redis implements DriverInterface
         $this->getConnect()->close();
         if (class_exists('Swoole\Coroutine') && Coroutine::getCid() > 0) {
             unset(Coroutine::getContext()[\Redis::class]);
-        } else {
+        } else{
             $this->connect = null;
         }
     }
@@ -537,14 +573,22 @@ SCRIPT;
     /**
      * 获取脚本的sha1 hash值
      * @param $script
+     * @param bool $force
      * @return mixed
+     * @throws \Exception
      */
-    protected function getScriptHash($script)
+    protected function getScriptHash($script,$force = false)
     {
         $scriptKey = md5($script);
-        if (!array_key_exists($scriptKey, [])) {
-            if (!$this->scriptHash[$scriptKey] = $this->getConnect()->script('load', $script)) {
-                throw new \RedisException($this->getConnect()->getLastError());
+        if ($force || !array_key_exists($scriptKey, $this->scriptHash)) {
+            try{
+                if (!$this->scriptHash[$scriptKey] = $this->getConnect()->script('load', $script)) {
+                    throw new \Exception('redis script error:'.$this->getConnect()->getLastError());
+                }
+            }catch (\RedisException $e){
+                if (!$this->scriptHash[$scriptKey] = $this->getConnect(true)->script('load', $script)) {
+                    throw new \Exception('redis script error:'.$this->getConnect()->getLastError());
+                }
             }
         }
         return $this->scriptHash[$scriptKey];
@@ -559,19 +603,19 @@ SCRIPT;
      */
     protected function eval($script, $args = [], $num_keys = 0)
     {
-        $redis = $this->getConnect();
         $scriptHash = $this->getScriptHash($script);
-        $result = $redis->evalSha($scriptHash, $args, $num_keys);
+        $redis = $this->getConnect();
+        try{
+            $result = $redis->evalSha($scriptHash, $args, $num_keys);
+        }catch (\RedisException $exception){
+            $scriptHash = $this->getScriptHash($script,true);
+            $redis = $this->getConnect(true);
+            $result = $redis->evalSha($scriptHash, $args, $num_keys);
+        }
+
         if ($err = $redis->getLastError()) {
             $redis->clearLastError();
-            //相同脚本同一协程中出错两次则抛出异常
-//            if (array_key_exists($scriptHash . '-' . Coroutine::getCid(), $this->scriptError)) {
             throw new \RedisException($err);
-//            }
-            //出错一次后删除脚本hash重新重试
-            unset($this->scriptHash[$scriptHash]);
-            $this->scriptError[$scriptHash . '-' . Coroutine::getCid()] = $err;
-            return $this->eval($script, $args, $num_keys);
         }
         unset($this->scriptError[$scriptHash . '-' . Coroutine::getCid()]);
         return $result;
