@@ -22,7 +22,7 @@ class TimeoutJob extends \MPQueue\Job
             '超时任务结束' .$b. date('Y-m-d H:i:s'),FILE_APPEND);
     }
 
-    public function fail_handle(array $jobInfo)
+    public function fail_handle(array &$jobInfo,\Throwable $e)
     {
         var_dump($jobInfo);
         return true;//不会调用配置handle

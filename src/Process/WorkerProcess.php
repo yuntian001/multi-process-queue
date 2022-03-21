@@ -292,6 +292,7 @@ class WorkerProcess
         $this->getStatus(2);
         $failExpire = $info['fail_expire'];
         $timeout = $info['timeout'];
+        $job = $info['job'];
         try {
             if ($info['exec_number'] > $info['fail_number']) {
                 throw new \Exception('上一个进程异常挂掉');
@@ -299,7 +300,6 @@ class WorkerProcess
             if($info['type'] == 2){//超时任务
                 throw new \Exception('任务超时');
             }
-            $job = $info['job'];
             try {
                 if ($timeout > 0) {
                     $this->registerTimeSig();
@@ -331,22 +331,24 @@ class WorkerProcess
                 $error = BasicsConfig::name() . ':' . getmypid() . ':' . $e->getCode() . ':' . $e->getMessage();
                 if ($info['type'] != 2 && $info['exec_number'] < $info['fail_number']) {
                     $this->delTimeSig();
-                    return $this->queueDriver->retry($id, $error, $failExpire);
-                }
-                try {
-                    $handle_result = false;
-                    if ($job instanceof Job) {
-                        $handle_result = $job->fail_handle($info, $e);
+                    $this->queueDriver->retry($id, $error, $failExpire);
+                }else{
+                    try {
+                        $handle_result = false;
+                        if ($job instanceof Job) {
+                            $handle_result = $job->fail_handle($info, $e);
+                        }
+                        if ($handle_result === false && QueueConfig::fail_handle()) {
+                            call_user_func(QueueConfig::fail_handle(), $info, $e);
+                        }
+                    } catch (\Throwable $exception) {
+                        Log::error($exception);
+                        $error .= "\nfail_handle:" . $exception->getCode() . ':' . $exception->getMessage();
                     }
-                    if ($handle_result === false && QueueConfig::fail_handle()) {
-                        call_user_func(QueueConfig::fail_handle(), $info, $e);
-                    }
-                } catch (\Throwable $exception) {
-                    Log::error($exception);
-                    $error .= "\nfail_handle:" . $exception->getCode() . ':' . $exception->getMessage();
+                    $this->delTimeSig();
+                    $this->queueDriver->failed($id, $info, $error);
                 }
-                $this->delTimeSig();
-                $this->queueDriver->failed($id, $info, $error);
+
             }
         }
         $this->queueDriver->close();
