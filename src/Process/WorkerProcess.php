@@ -294,7 +294,7 @@ class WorkerProcess
         $timeout = $info['timeout'];
         $job = $info['job'];
         try {
-            if ($info['exec_number'] > $info['fail_number']) {
+            if (($info['exec_number']-1) > $info['fail_number']) {
                 throw new \Exception('上一个进程异常挂掉');
             }
             if($info['type'] == 2){//超时任务
@@ -329,7 +329,7 @@ class WorkerProcess
             if($setRe){
                 Log::error($e);
                 $error = BasicsConfig::name() . ':' . getmypid() . ':' . $e->getCode() . ':' . $e->getMessage();
-                if ($info['type'] != 2 && $info['exec_number'] < $info['fail_number']) {
+                if ($info['type'] != 2 && $info['exec_number'] <= $info['fail_number']) {
                     $this->delTimeSig();
                     $this->queueDriver->retry($id, $error, $failExpire);
                 }else{
@@ -348,7 +348,6 @@ class WorkerProcess
                     $this->delTimeSig();
                     $this->queueDriver->failed($id, $info, $error);
                 }
-
             }
         }
         $this->queueDriver->close();
