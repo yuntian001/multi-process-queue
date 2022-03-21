@@ -4,7 +4,7 @@ namespace MPQueueTest\Job;
 class FailedJob extends \MPQueue\Job{
 
 //    protected $fail_expire = null;//失败重试时间按配置
-    protected $fail_expire = 10;
+    protected $fail_expire = 3;
 
     //protected $fail_number = null; //最大失败次数按配置
     protected $fail_number = 4; //最大失败次数4次
@@ -18,8 +18,9 @@ class FailedJob extends \MPQueue\Job{
         throw new \Exception('直接抛出异常');
     }
 
-    public function fail_handle(array $jobInfo, \Throwable $e)
+    public function fail_handle(array &$jobInfo, \Throwable $e)
     {
+        var_dump('执行失败回调');
         var_dump($jobInfo);
         var_dump($e->getMessage());
         return true;//不会调用配置handle
