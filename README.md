@@ -50,7 +50,7 @@
 |queue[0].fail_expire | int | 否 | 3 | 失败延时投递时间(s 支持小数精度到0.001)以投递任务方为准 |
 |queue[0].fail_handle | callable | 否 | 空 | 任务失败执行函数(当任务超时或者达到最大投递次数后会执行) |
 |queue[0].worker_start_handle | callable | 否 | 空 | worker进程启动加载函数（当前队列有效） |
-|queue[0].model | int | 否 | \QueueConfig::MODEl_DISTRIBUTE |队列运行模式（QueueConfig::MODEl_DISTRIBUTE 分发模式 QueueConfig::MODEL_GRAB 抢占模式）
+|queue[0].model | int | 否 | \MPQueue\Config\QueueConfig::MODEl_DISTRIBUTE |队列运行模式（\MPQueue\Config\QueueConfig::MODEl_DISTRIBUTE 分发模式 \MPQueue\Config\QueueConfig::MODEL_GRAB 抢占模式）
 
 fail_handle 会传入两个参数 $jobInfo 任务详细信息、$e出错的异常类
 fail_handle的执行时间也受timeout的控制

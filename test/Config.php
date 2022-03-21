@@ -3,7 +3,7 @@ return [
     'basics'=>[
         'name'=>'mp-queue-1',//多个服务器同时启动时需要分别设置名字
         'pid_path' => null,//主进程pid存放路径(需要可写)
-        'driver'=> new \MPQueue\Queue\Driver\Redis('127.0.0.1',null,'',1),
+        'driver'=> new \MPQueue\Queue\Driver\Redis('127.0.0.1',null,'',0),
     ],
     'log'=>[
       'level'=>\MPQueue\Log\Driver\RotatingFileLogDriver::INFO

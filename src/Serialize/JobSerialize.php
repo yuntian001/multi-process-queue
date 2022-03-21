@@ -29,6 +29,9 @@ class JobSerialize implements SerializeInterface
         if(is_string($data)){
             return new $data();
         }
-        return $data->getClosure();
+        if($data instanceof SerializableClosure){
+            return $data->getClosure();
+        }
+        return $data;
     }
 }
