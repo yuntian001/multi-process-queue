@@ -294,12 +294,12 @@ class WorkerProcess
         $timeout = $info['timeout'];
         $job = $info['job'];
         try {
-            if (($info['exec_number']-1) > $info['fail_number']) {
-                throw new \Exception('上一个进程异常挂掉');
-            }
             if($info['type'] == 2){//超时任务
                 throw new \Exception('任务超时');
             }
+            if (($info['exec_number']-1) > $info['fail_number']) {
+                throw new \Exception('上一个进程异常挂掉');
+            }           
             try {
                 if ($timeout > 0) {
                     $this->registerTimeSig();
