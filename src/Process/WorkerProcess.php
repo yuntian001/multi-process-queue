@@ -79,7 +79,7 @@ class WorkerProcess
             Log::debug('子进程启动完成');
             //必须添加阻塞程序，否则信号异步监听不生效(协程等待时间异步信号监听会被阻塞)
             while (true) {
-                Coroutine::sleep(0.001);
+                Coroutine::sleep(0.1);
             }
         }
 
