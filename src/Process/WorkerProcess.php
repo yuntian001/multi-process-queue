@@ -299,7 +299,7 @@ class WorkerProcess
             }
             if (($info['exec_number']-1) > $info['fail_number']) {
                 throw new \Exception('上一个进程异常挂掉');
-            }           
+            }
             try {
                 if ($timeout > 0) {
                     $this->registerTimeSig();
@@ -354,7 +354,7 @@ class WorkerProcess
         $this->status = ProcessConfig::STATUS_IDLE;
         if(QueueConfig::queue()->memory_limit() && memory_get_usage() > (QueueConfig::queue()->memory_limit())){
             Log::error('内存占用过多：'.memory_get_usage());
-            $this->process->exit();
+            $this->process->exit(ProcessConfig::CODE_MEMORY_OVERFLOW);
         }
         $this->getStatus();
     }
@@ -366,7 +366,8 @@ class WorkerProcess
     private function registerTimeSig()
     {
         pcntl_signal(SIGALRM, function () {
-            $this->process->exit();
+            Log::error('进程执行时间超时');
+            $this->process->exit(ProcessConfig::CODE_TIMEOUT);
         });
     }
 

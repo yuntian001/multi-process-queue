@@ -15,13 +15,19 @@ class ProcessConfig implements ConfigInterface
 {
     use Config;
 
+    //进程状态码
     const STATUS_ERROR = -1;//异常
     const STATUS_IDLE = 0;//空闲
     const STATUS_BUSY = 1;//繁忙
 
+    //进程信号
     const SIG_STOP = SIGTERM;//停止
     const SIG_STATUS = SIGUSR1;//获取进程状态
     const SIG_RELOAD = SIGUSR2;//平滑重启
+
+    //进程结束错误状态码
+    const CODE_TIMEOUT = 1;//超时
+    const CODE_MEMORY_OVERFLOW = 2;//内存溢出
 
     private static $type='manage';
     private static $unixSocketPath = '/tmp';
