@@ -69,7 +69,7 @@ class MasterProcess
         //必须添加阻塞程序，否则异步信号监听不生效(协程socket连接等待时间异步信号监听会被阻塞)
         go(function (){
             while (true) {
-                sleep(0);
+               \Swoole\Coroutine\System::sleep(0.01);
             }
         });
     }
