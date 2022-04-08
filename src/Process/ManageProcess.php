@@ -226,9 +226,10 @@ class ManageProcess
         //状态查询信号
         Process::signal(ProcessConfig::SIG_STATUS, function () {
             foreach ($this->processes as $pid => $value) {
-                !Process::kill($pid, 0) && $this->processes[$pid]['status'] = ProcessConfig::STATUS_ERROR;
+                !Process::kill($pid, ProcessConfig::SIG_STATUS) && $this->processes[$pid]['status'] = ProcessConfig::STATUS_ERROR;
             }
-            $this->outputStatus();
+            \Swoole\Timer::after(1000,[$this,'outputStatus']);
+            //$this->outputStatus();
         });
         //中断信号
         Process::signal(SIGINT, function () {
