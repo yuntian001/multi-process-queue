@@ -179,7 +179,7 @@ class ManageProcess
             while ($ret = Process::wait(false)) {
                 if (isset($this->processes[$ret['pid']])) {
                     $this->processes[$ret['pid']]['status'] = 2;
-                    Log::info($this->processes[$ret['pid']]['type'] . "子进程：{$ret['pid']}退出:{$sig}");
+                    Log::info($this->processes[$ret['pid']]['type'] . "子进程：{$ret['pid']}退出 signal:{$ret['signal']} code:{$ret['code']}");
                     switch ($this->processes[$ret['pid']]['type']) {
                         case 'worker':
                             $queue = $this->processes[$ret['pid']]['queue'];
