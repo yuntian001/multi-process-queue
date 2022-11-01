@@ -132,9 +132,9 @@ Config::set($config);
  ```
    php master.php worker:start -d
  ``` 
- - 支持的命令（list命令可查看）
+ - 支持的命令（help命令可查看）
  ```
-  php master.php list
+  php master.php help
 ```
 ```
   queue:clean 清空队列内容 --queue test 清空指定队列:test
@@ -348,3 +348,82 @@ Class HelloWord extends Job{
     \MPQueue\Config\Config::set(config('mp-queue'));//配置项设置也可注册在初始化化行为(app_init)中 统一加载
     \MPQueue\Queue\Queue::push('test',\app\job\HelloWord::class);
 ```
+
+## 在thinkpkp6.0中使用
+- 安装
+```
+  composer require yuntian001/multi-process-queue
+```
+- 在config文件夹中建立配置文件mp-queue.php
+```
+<?php
+//当前仅为示例，具体配置可按文档自定义
+return [
+    'basics'=>[
+        'name'=>'mp-queue-1',//多个服务器同时启动时需要分别设置名字
+        'driver'=> new \MPQueue\Queue\Driver\Redis('127.0.0.1'),
+        'worker_start_handle'=>function(){
+            //加载thinkphp核心应用
+            (new \think\App())->initialize();
+        }
+    ],
+    'queue' => [
+        [
+            'name' => 'test',//队列名称
+            'fail_handle'=>function($info,$e){
+                //自定义逻辑如存储到mysql
+            },//失败执行函数
+        ],
+        [
+            'name' => 'test2',//队列名称
+            'worker_number' => 4,//当前队列工作进程数量
+            'memory_limit' => 0, //当前队列工作进程的最大使用内存，超出则重启。单位 MB
+        ]
+    ],
+    'log' => [
+        'path' => __DIR__.'/../runtime',//日志存放目录需要可写权限
+    ]
+];
+```
+ - 在项目根目录建立启动文件mp-queue
+```
+#!/usr/bin/env php
+<?php
+define('MP_QUEUE_CLI', true);
+require __DIR__ . '/vendor/autoload.php';
+// 加载基础文件
+\MPQueue\Config\Config::set(include(__DIR__.'/config/mp-queue.php'));
+(new \MPQueue\Console\Application())->run();
+```
+- 创建job类 app\job\HelloWord.php
+```
+<?php
+//app/job/HelloWord.php
+namespace app\job;
+use MPQueue\Job;
+use think\facade\Log;
+
+Class HelloWord extends Job{
+    //handle内可调用thinkphp方法和函数，但handle函数不支持依赖注入传参
+    public function handle()
+    {
+        var_dump('hello word!'.app_path());
+        Log::info('hello word!'.app_path());
+        Log::info(config('database'));
+    }
+}
+```
+- 后台启动队列(或不加-d直接启动)
+```
+ php mp-queue worker:start -d
+```
+- 投递任务 在任意位置(如控制器)加入以下代码进行投递
+```
+    \MPQueue\Config\Config::set(config('mp-queue'));//配置项设置也可注册在初始化文件中统一加载
+    \MPQueue\Queue\Queue::push('test',\app\job\HelloWord::class);
+```
+
+## 项目推荐
+在这里推荐下，我自己开源的vue中后台模版项目（vue3+vite3+element-plus），如果想搭建后台可以使用下
+
+github地址： [https://github.com/meadmin-cn/meadmin-template](https://github.com/meadmin-cn/meadmin-template)

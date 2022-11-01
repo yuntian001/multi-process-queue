@@ -26,11 +26,16 @@ class Application
     public function run(){
         global $argv;
         if(!isset($argv[1])){
-           return OutPut::error('请输入指令 list可查看指令列表'.PHP_EOL);
+           return OutPut::error('请输入指令help查看指令列表'.PHP_EOL);
         }
         $action = $argv[1];
         switch ($action){
             case 'list':
+                foreach ($this->commands as $key=>$value){
+                    OutPut::normal($key.' '.$value['description'].PHP_EOL);
+                }
+                return;
+            case 'help':
                 foreach ($this->commands as $key=>$value){
                     OutPut::normal($key.' '.$value['description'].PHP_EOL);
                 }
@@ -41,7 +46,7 @@ class Application
                 }
                 break;
         }
-        OutPut::error('错误的指令,请输入list查看指令列表'.PHP_EOL);
+        OutPut::error('错误的指令,请输入指令help查看指令列表'.PHP_EOL);
     }
 
 }
