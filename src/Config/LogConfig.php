@@ -24,7 +24,7 @@ class LogConfig implements ConfigInterface
     {
         self::checkSet();
         if (MP_QUEUE_CLI && !is_dir($path) && !is_writable($path)) {
-            throw new \Exception('log path 必须是一个正确的可读写路径');
+            throw new \Exception("log path: $path 必须是一个正确的可读写路径");
         }
         if(is_string($driver) && class_exists($driver)){
             $driver = new $driver;
