@@ -349,7 +349,7 @@ Class HelloWord extends Job{
     \MPQueue\Queue\Queue::push('test',\app\job\HelloWord::class);
 ```
 
-## 在thinkpkp6.0中使用
+## 在thinkphp6.0中使用
 - 安装
 ```
   composer require yuntian001/multi-process-queue
