@@ -424,6 +424,6 @@ Class HelloWord extends Job{
 ```
 
 ## 项目推荐
-在这里推荐下，我自己开源的vue中后台模版项目，如果想搭建后台可以使用下
+在这里推荐下，我自己开源的vue中后台模版项目（vue3+vite3+element-plus），如果想搭建后台可以使用下
 
-github地址： []()
+github地址： [https://github.com/meadmin-cn/meadmin-template](https://github.com/meadmin-cn/meadmin-template)
