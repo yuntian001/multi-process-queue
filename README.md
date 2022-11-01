@@ -132,9 +132,9 @@ Config::set($config);
  ```
    php master.php worker:start -d
  ``` 
- - 支持的命令（list命令可查看）
+ - 支持的命令（help命令可查看）
  ```
-  php master.php list
+  php master.php help
 ```
 ```
   queue:clean 清空队列内容 --queue test 清空指定队列:test
