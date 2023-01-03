@@ -1,7 +1,7 @@
 {
     "name": "yuntian001/multi-process-queue",
     "description": "基于swoole的多进程队列系统，\n支持一键协程、多进程、低延时(最低毫秒级)、低资源占用、高可用。可与 laravel thinkphp 等框架配合使用",
-    "version":"2.1.1",
+    "version":"2.1.2",
     "type": "library",
     "license": "MIT",
     "authors": [
