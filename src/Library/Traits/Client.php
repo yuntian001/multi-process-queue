@@ -82,7 +82,7 @@ trait Client
             // 如果超时时则不关闭连接，其他情况直接关闭连接
             if ($this->socket->errCode !== SOCKET_ETIMEDOUT) {
                 $this->close();
-                throw new ClientException('连接已关闭', SOCKET_ECONNREFUSED);
+                throw new ClientException('连接已关闭:'.$this->socket->errCode, SOCKET_ECONNREFUSED);
             }
             return $data;
         }

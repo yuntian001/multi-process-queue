@@ -92,7 +92,10 @@ class MasterProcess
                             $connection->recvAndExec();
                         }
                     } catch (ClientException $e) {
-                        Log::error($e, [$connection->pid]);
+                        if(Process::kill($connection->pid,0)){
+                            Log::error($e, [$connection->pid]);
+                            Process::kill($connection->pid,ProcessConfig::SIG_RELOAD);
+                        }
                         $this->unsetWorker($connection->pid);
                     }
                 });
@@ -220,11 +223,18 @@ class MasterProcess
     public function sendToWorker($pid = 0, string $type, $data = null, string $msg = '')
     {
         if (!$pid) {
-            foreach ($this->workProcess as $value) {
-                $value['connection']->send($type, $data, $msg);
+            foreach ($this->workProcess as $wPid=>$value) {
+                $this->sendToWorker($wPid,$type, $data, $msg);
             }
         } else {
-            $this->workProcess[$pid]['connection']->send($type, $data, $msg);
+            try{
+                $this->workProcess[$pid]['connection']->send($type, $data, $msg);
+            }catch (\Exception $e){
+                $this->unsetWorker($pid);
+                if(Process::kill($pid,0)){
+                    Process::kill($pid,ProcessConfig::SIG_RELOAD);
+                }
+            }
         }
         return true;
     }
