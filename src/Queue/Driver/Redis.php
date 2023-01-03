@@ -26,6 +26,8 @@ class Redis implements DriverInterface
 
     protected $queue = null;
 
+    private $pingNumber = 0;
+
     const TASK_NUMBER = 'task_number'; //队列任务数量key名 string类型
 
     const TASK_OVER = 'task_over';     //已完成任务
@@ -84,7 +86,7 @@ class Redis implements DriverInterface
         if (class_exists('Swoole\Coroutine') && Coroutine::getCid() > 0) {
             if(isset(Coroutine::getContext()[\Redis::class])){
                 if($isPing){
-                    while (!$this->ping(Coroutine::getContext()[\Redis::class])){
+                    while (!$this->ping(Coroutine::getContext()[\Redis::class],10)){
                         Coroutine::getContext()[\Redis::class] = $this->connection(true);
                     }
                 }
@@ -97,7 +99,7 @@ class Redis implements DriverInterface
             $this->connect = $this->connection();
         }else{
             if($isPing) {
-                while (!$this->ping($this->connect)){
+                while (!$this->ping($this->connect,10)){
                     $this->connect = $this->connection(true);
                 }
             }
@@ -129,12 +131,18 @@ class Redis implements DriverInterface
      * @param $redis
      * @return bool
      */
-    private function ping($redis){
+    private function ping($redis,$max=0){
+        $this->pingNumber++;
         try{
             if($redis->ping()){
+                $this->pingNumber = 0;
                 return true;
             }
         }catch (\RedisException $e){
+        }
+        if($max && $this->pingNumber > $max){
+            Log::warning("redis ping失败 $max 次，2s后重试");
+            sleep(2);
         }
         return false;
     }

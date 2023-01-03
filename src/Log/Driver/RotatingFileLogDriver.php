@@ -75,7 +75,7 @@ class RotatingFileLogDriver implements LogDriverInterface
     {
         if (!static::$logger) {
             !static::$logger = new Logger('log');
-            static::$logger->pushHandler(new RotatingFileHandler(LogConfig::path() . '/mpQueue.log', 30, LogConfig::level()));
+            static::$logger->useLoggingLoopDetection(false)->pushHandler(new RotatingFileHandler(LogConfig::path() . '/mpQueue.log', 30, LogConfig::level()));
         }
         return static::$logger;
     }
