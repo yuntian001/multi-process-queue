@@ -585,9 +585,9 @@ SCRIPT;
                 if (!$this->scriptHash[$scriptKey] = $this->getConnect()->script('load', $script)) {
                     throw new \Exception('redis script error:'.$this->getConnect()->getLastError());
                 }
-            }catch (\RedisException $e){
+            }catch (\Exception $e){
                 if (!$this->scriptHash[$scriptKey] = $this->getConnect(true)->script('load', $script)) {
-                    throw new \Exception('redis script error:'.$this->getConnect()->getLastError());
+                    throw new \Exception('redis script error:'.$this->getConnect()->getLastError().'|'.$e->getMessage());
                 }
             }
         }
@@ -607,7 +607,7 @@ SCRIPT;
         $redis = $this->getConnect();
         try{
             $result = $redis->evalSha($scriptHash, $args, $num_keys);
-        }catch (\RedisException $exception){
+        }catch (\Exception $exception){
             $scriptHash = $this->getScriptHash($script,true);
             $redis = $this->getConnect(true);
             $result = $redis->evalSha($scriptHash, $args, $num_keys);
