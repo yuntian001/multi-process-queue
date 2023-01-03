@@ -74,7 +74,7 @@ class Queue
         }else{
             throw new \Exception('队列任务内容非法，必须是\MPQueue\Job类的实现/合法的可调用结构');
         }
-        return  BasicsConfig::driver()->setQueue($queue)->push(JobSerialize::serialize($job),
+        return  (clone BasicsConfig::driver())->setQueue($queue)->push(JobSerialize::serialize($job),
             $delay,
             max(0,(double)$timeout),
             max(0,(int)$fail_number),
