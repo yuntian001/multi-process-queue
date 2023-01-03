@@ -156,15 +156,15 @@ class WorkerProcess
      * @param $unixSocketPath
      * @return mixed
      */
-    protected function connectMaster($unixSocketPath)
+    protected function connectMaster($unixSocketPath, $e='')
     {
         if (empty($this->masterProcess['unixSocketPath']) || $unixSocketPath != $this->masterProcess['unixSocketPath']) {
             return false;
         }
         if (empty($this->masterProcess['connectNumber'])) {
-            Log::debug('连接到master server', [$unixSocketPath]);
+            Log::debug('连接到master server', [$unixSocketPath,$e]);
         } else {
-            Log::warning('断线重连master server', [$unixSocketPath]);
+            Log::warning('断线重连master server', [$unixSocketPath,$e]);
         }
         $this->masterProcess['client'] = null;
         $this->masterProcess['connectNumber']++;
@@ -172,8 +172,8 @@ class WorkerProcess
             $this->masterProcess['client'] = new \MPQueue\Client\UnixSocket\WorkerClient($this->masterProcess['unixSocketPath'], $this);
         } catch (ClientException $e) {
             //连接失败1s后重试
-            return Timer::after(1000, function () use ($unixSocketPath) {
-                $this->connectMaster($unixSocketPath);
+            return Timer::after(1000, function () use ($unixSocketPath,$e) {
+                $this->connectMaster($unixSocketPath, $e);
             });
         }
         $this->masterProcess['client']->send('addWorker', ['status' => $this->status]);
