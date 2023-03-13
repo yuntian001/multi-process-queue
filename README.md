@@ -179,7 +179,7 @@ MPQueue\Queue\Queue::push 接收三个参数：
 - $queue 队列名称
 - $job   投递的任务
  
-  $job 允许的类型为callable 或 \MPQueue\Job的子类 具体测试可参考test文件夹
+  $job 允许的类型为callable 或 \MPQueue\Job的子类 或 \MPQueue\Job的子类创建的对象 具体测试可参考test文件夹
   
   $job为匿名函数时队列执行进程 和 投递任务进程无需再同一项目下。
 
